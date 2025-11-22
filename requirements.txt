@@ -1,0 +1,9 @@
+pandas
+chromadb
+langchain
+langchain-huggingface
+langchain-chroma
+sentence-transformers
+streamlit
+deep-translator
+langchain-groq
