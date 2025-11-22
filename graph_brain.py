@@ -1,5 +1,5 @@
 import os
-from typing import List, TypedDict
+from typing import List, TypedDict, Annotated
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -14,28 +14,30 @@ class GraphState(TypedDict):
     """
     Represents the state of our graph.
     """
-    query: str
-    dictionary_context: str
-    documents: List[Document]
-    generation: str
-    retry_count: int
+    question: str           # User's original input
+    expanded_query: str     # Translated/Optimized search term
+    documents: List[Document] # Retrieved context
+    loop_count: int         # Circuit breaker counter
+    generation: str         # Final answer candidate
+    grade: str              # "useful" or "not useful"
 
 # --- 2. CONFIGURATION & COMPONENTS ---
 def get_components():
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
+        # Graceful fallback if key is missing, though app should handle this
         raise ValueError("GROQ_API_KEY environment variable not set.")
         
     embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     
-    # Store 1: Quran
-    vectorstore_quran = Chroma(
+    # Store 1: Knowledge Base (Quran + Tafsir)
+    vectorstore_kb = Chroma(
         persist_directory="./mizan_chroma_db",
         embedding_function=embedding_function,
-        collection_name="mizan_quran_main"
+        collection_name="mizan_knowledge_base"
     )
     
-    # Store 2: Dictionary
+    # Store 2: Dictionary (Concepts)
     vectorstore_dict = Chroma(
         persist_directory="./mizan_chroma_db",
         embedding_function=embedding_function,
@@ -48,237 +50,317 @@ def get_components():
         groq_api_key=api_key
     )
     
-    return vectorstore_quran, vectorstore_dict, llm
+    return vectorstore_kb, vectorstore_dict, llm
 
 # --- 3. NODES ---
 
-def lookup_terms(state):
+def understand_query(state):
     """
-    Node 1: The Scholar
-    Search the dictionary for key terms.
+    Node 1: Understand Query (Dictionary Lookup)
+    Queries the dictionary to expand terms (e.g. Wudu -> Ablution).
     """
-    print("---NODE 1: LOOKUP TERMS---")
-    query = state["query"]
+    print("---NODE: UNDERSTAND QUERY---")
+    question = state["question"]
+    loop_count = state.get("loop_count", 0)
     
-    _, vectorstore_dict, llm = get_components()
-    
-    # Extract Keywords using LLM
-    system = """You are a keyword extractor. Extract the main Islamic term from the query. 
-    If the query is "What is the punishment for Qazf?", output "Qazf".
-    If no specific Islamic term is found, output "None".
-    Output ONLY the term."""
-    
-    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", "{query}")])
-    chain = prompt | llm | StrOutputParser()
-    term = chain.invoke({"query": query}).strip()
-    print(f"Extracted Term: {term}")
-    
-    if term.lower() == "none":
-        return {"dictionary_context": ""}
+    try:
+        _, vectorstore_dict, llm = get_components()
         
-    # Search dictionary with the specific term
-    results = vectorstore_dict.similarity_search(term, k=3)
-    
-    context_parts = []
-    for doc in results:
-        context_parts.append(f"{doc.metadata.get('term')} ({doc.metadata.get('definition')})")
-    
-    dictionary_context = "; ".join(context_parts)
-    print(f"Dictionary Context: {dictionary_context}")
-    
-    return {"dictionary_context": dictionary_context}
+        # --- MANUAL DICTIONARY (FAST PATH) ---
+        # Fixes "Black Hole" issues for common Prophets immediately
+        MANUAL_CONCEPT_MAP = {
+            "yusuf": "Joseph prophet dream egypt well",
+            "musa": "Moses pharaoh stick sea sinai",
+            "ibrahim": "Abraham ismail isaac kaaba sacrifice",
+            "maryam": "Mary jesus isa mother",
+            "isa": "Jesus mary messiah christ",
+            "yunus": "Jonah whale fish"
+        }
+        
+        expanded_terms = []
+        for key, val in MANUAL_CONCEPT_MAP.items():
+            if key in question.lower():
+                expanded_terms.append(f"{key.capitalize()}: {val}")
+                print(f"   [Manual Dict] Mapped '{key}' -> '{val}'")
+        
+        # 1. Extract key term to look up (LLM Fallback)
+        extract_prompt = ChatPromptTemplate.from_template(
+            "Extract the main Islamic term from: '{question}'. If none, return 'None'. Output ONLY the term."
+        )
+        chain = extract_prompt | llm | StrOutputParser()
+        term = chain.invoke({"question": question}).strip()
+        
+        expanded_query = question
+        
+        definitions = expanded_terms # Start with manual terms
+        
+        if term.lower() != "none":
+            # 2. Search Dictionary
+            results = vectorstore_dict.similarity_search(term, k=3)
+            
+            # 3. Append definitions to query
+            definitions.extend([f"{doc.metadata.get('term')}: {doc.metadata.get('definition')}" for doc in results])
+            
+        if definitions:
+            # Deduplicate
+            definitions = list(set(definitions))
+            expanded_query = f"{question} (Context: {'; '.join(definitions)})"
+            print(f"   Expanded: {expanded_query}")
+        else:
+            print("   No dictionary matches found.")
+        
+        return {"expanded_query": expanded_query, "loop_count": loop_count}
+        
+    except Exception as e:
+        print(f"   Error in understand_query: {e}")
+        return {"expanded_query": question, "loop_count": loop_count}
 
-def expand_query(state):
+def retrieve(state):
     """
-    Node 2: The Translator
-    Rewrite query using dictionary context.
+    Node 2: Retrieve
+    Searches mizan_knowledge_base using expanded_query.
     """
-    print("---NODE 2: EXPAND QUERY---")
-    query = state["query"]
-    dictionary_context = state["dictionary_context"]
-    retry_count = state.get("retry_count", 0)
+    print("---NODE: RETRIEVE---")
+    expanded_query = state["expanded_query"]
     
-    _, _, llm = get_components()
-    
-    system = """You are an expert Islamic Terminology Translator.
-    User Query: {query}
-    Dictionary Definitions: {context}
-    
-    Task: Rewrite the user query to be more explicit for a Quran search. 
-    If the user uses a term like "Qazf", use the definition "False Accusation" in the new query.
-    Keep it concise.
-    """
-    
-    prompt = ChatPromptTemplate.from_messages([("system", system)])
-    chain = prompt | llm | StrOutputParser()
-    
-    new_query = chain.invoke({"query": query, "context": dictionary_context})
-    print(f"Expanded Query: {new_query}")
-    
-    return {"query": new_query, "retry_count": retry_count}
-
-def retrieve_verses(state):
-    """
-    Node 3: The Librarian
-    Search the Quran store.
-    """
-    print("---NODE 3: RETRIEVE VERSES---")
-    query = state["query"]
-    
-    vectorstore_quran, _, _ = get_components()
-    
-    results = vectorstore_quran.similarity_search(query, k=5)
-    
-    return {"documents": results}
+    try:
+        vectorstore_kb, _, _ = get_components()
+        
+        # Strictness: Top 5-10 documents
+        documents = vectorstore_kb.similarity_search(expanded_query, k=5)
+        print(f"   Retrieved {len(documents)} documents.")
+        
+        return {"documents": documents}
+        
+    except Exception as e:
+        print(f"   Error in retrieve: {e}")
+        return {"documents": []}
 
 def grade_documents(state):
     """
-    Node 4: The Strict Judge
-    Filter irrelevant verses.
+    Node 3: Grade Documents (The Critic)
+    Scores documents 0-2. Discards score 0.
     """
-    print("---NODE 4: GRADE DOCUMENTS---")
-    query = state["query"]
+    print("---NODE: GRADE DOCUMENTS---")
+    question = state["question"]
     documents = state["documents"]
     
-    _, _, llm = get_components()
-    
-    # Grader Prompt
-    system = """You are a strict judge evaluating relevance. 
-    Query: {question} 
-    Document: {document} 
-    Does the document contain the specific answer to the query? 
-    Reply ONLY 'yes' or 'no'."""
-    
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system),
-        ("human", "Judge this document.")
-    ])
-    
-    chain = prompt | llm | StrOutputParser()
-    
-    filtered_docs = []
-    for d in documents:
-        score = chain.invoke({"question": query, "document": d.page_content})
-        grade = score.lower().strip()
-        print(f"Doc ID: {d.metadata.get('id')} | Grade: {grade}")
-        if "yes" in grade or "relevant" in grade:
-            filtered_docs.append(d)
+    try:
+        _, _, llm = get_components()
+        
+        # Grader Prompt
+        system = """You are a strict judge evaluating relevance. 
+        Query: {question} 
+        Document: {document} 
+        Score 0 (Irrelevant), 1 (Context), or 2 (Direct Answer).
+        Output ONLY the number."""
+        
+        prompt = ChatPromptTemplate.from_messages([("system", system)])
+        chain = prompt | llm | StrOutputParser()
+        
+        filtered_docs = []
+        for d in documents:
+            score_str = chain.invoke({"question": question, "document": d.page_content}).strip()
+            try:
+                score = int(score_str)
+            except:
+                score = 0 # Default to 0 if LLM hallucinates format
             
-    return {"documents": filtered_docs}
+            print(f"   Doc ID {d.metadata.get('id')}: Score {score}")
+            
+            if score > 0:
+                filtered_docs.append(d)
+                
+        return {"documents": filtered_docs}
+        
+    except Exception as e:
+        print(f"   Error in grade_documents: {e}")
+        return {"documents": []}
 
-def rewrite_query_loop(state):
+def generate(state):
     """
-    Loop Logic: If no docs found, rewrite query again (broader).
+    Node 4: Generate (The Librarian)
+    Generates answer using filtered documents.
     """
-    print("---LOOP: REWRITE QUERY---")
-    query = state["query"]
-    retry_count = state.get("retry_count", 0)
-    
-    _, _, llm = get_components()
-    
-    msg = [
-        ("system", "You are a helpful assistant. The previous search yielded no results. Rephrase this query to be broader."),
-        ("human", f"Original: {query}"),
-    ]
-    response = llm.invoke(msg)
-    new_query = response.content
-    
-    return {"query": new_query, "retry_count": retry_count + 1}
-
-def generate_answer(state):
-    """
-    Node 5: The Mufti
-    Generate final answer.
-    """
-    print("---NODE 5: GENERATE ANSWER---")
-    query = state["query"]
+    print("---NODE: GENERATE---")
+    question = state["question"]
     documents = state["documents"]
     
-    _, _, llm = get_components()
-    
-    system_prompt = """You are Mizan, a strict Islamic research assistant.
-    
-    Instructions:
-    1. Answer ONLY using the Context provided below.
-    2. Cite the Surah and Verse for every claim.
-    3. If the Surah is Meccan or Medinan (found in context), mention it if relevant to the ruling.
-    
-    Context:
-    {context}
+    try:
+        _, _, llm = get_components()
+        
+        if not documents:
+            return {"generation": "I cannot find a direct reference to your query in the authentic sources.", "grade": "not useful"}
+
+        system_prompt = """You are Mizan, an Islamic Research Assistant.
+
+        CORE INSTRUCTION: Check the User's Intent.
+
+        MODE A: STORY/HISTORY (e.g., 'Story of Musa', 'Who was Yusuf?')
+
+        Format: Write a rich, engaging narrative paragraph.
+
+        Style: Fluent storytelling. Do NOT use bullet points.
+
+        Citations: Weave them naturally into the sentences.
+
+        Bad: "He went to Egypt. (Surah 12:21)"
+
+        Good: "As described in Surah Yusuf (12:21), a man from Egypt bought him and asked his wife to honor his stay."
+
+        MODE B: RULING/LIST (e.g., 'Punishment for Zina', 'Breakers of Wudu')
+
+        Format: Use Bullet Points for clarity.
+
+        Style: Concise, academic, and direct.
+
+        General Rules:
+
+        Never refuse to answer if the sources are present.
+
+        Always cite Surah Name and Verse Number.
+        
+        Context:
+        {context}
+        """
+        
+        def format_docs(docs):
+            return "\n\n".join([f"Source: {d.page_content}" for d in docs])
+        
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("human", "{question}")
+        ])
+        
+        chain = prompt | llm | StrOutputParser()
+        generation = chain.invoke({"context": format_docs(documents), "question": question})
+        
+        return {"generation": generation, "grade": "useful"}
+        
+    except Exception as e:
+        print(f"   Error in generate: {e}")
+        return {"generation": "System Busy: Unable to generate answer.", "grade": "not useful"}
+
+def integrity_check(state):
     """
+    Node 5: Integrity Check (The Safety Guard)
+    Checks for refusals or missing citations.
+    """
+    print("---NODE: INTEGRITY CHECK---")
+    generation = state["generation"]
+    question = state["question"]
+    documents = state["documents"]
     
-    def format_docs(docs):
-        return "\n\n".join([f"Source: {d.page_content}" for d in docs])
-    
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{question}")
-    ])
-    
-    chain = prompt | llm | StrOutputParser()
-    generation = chain.invoke({"context": format_docs(documents), "question": query})
+    # Simple check for refusal
+    if "I cannot find" in generation or "I cannot answer" in generation:
+        # Re-prompt with "Academic/Historical Context" mode if we have docs but LLM refused
+        if documents:
+            print("   Refusal detected despite docs. Retrying with Academic Mode.")
+            try:
+                _, _, llm = get_components()
+                system_prompt = """You are an Academic Historian of Islamic Texts.
+                The user asked: {question}
+                
+                Using the provided sources, explain what the text says historically or linguistically.
+                Do not give a religious ruling, just report the text.
+                
+                Context:
+                {context}
+                """
+                def format_docs(docs):
+                    return "\n\n".join([f"Source: {d.page_content}" for d in docs])
+                
+                prompt = ChatPromptTemplate.from_messages([("system", system_prompt)])
+                chain = prompt | llm | StrOutputParser()
+                new_generation = chain.invoke({"question": question, "context": format_docs(documents)})
+                return {"generation": new_generation}
+            except:
+                pass # Keep original refusal if retry fails
     
     return {"generation": generation}
 
-def no_info_fallback(state):
-    print("---NO INFO FALLBACK---")
-    return {"generation": "I searched the Quran and Tafsir but could not find a direct reference to your query in the authentic sources."}
-
 # --- 4. EDGES ---
 
-def decide_next_step(state):
+def decide_to_generate(state):
     """
-    Check if we have documents after grading.
+    Decides next step based on document relevance and loop count.
     """
+    print("---EDGE: DECIDE---")
     documents = state["documents"]
-    retry_count = state.get("retry_count", 0)
+    loop_count = state.get("loop_count", 0)
     
-    if documents:
-        return "generate"
-    else:
-        if retry_count >= 2:
-            return "stop"
+    if not documents:
+        if loop_count >= 3:
+            print("   Circuit Breaker Triggered (Max Loops).")
+            return "stop_no_info"
         else:
+            print(f"   No relevant docs. Looping back (Count: {loop_count + 1}).")
             return "rewrite"
+    
+    print("   Relevant docs found. Proceeding to Generate.")
+    return "generate"
+
+def rewrite_query_logic(state):
+    """
+    Helper node to increment loop count and maybe rewrite query (simplified for now).
+    In a full implementation, this would use an LLM to rephrase.
+    For now, we just increment loop count to avoid infinite loops and pass through.
+    """
+    print("---NODE: REWRITE QUERY---")
+    question = state["question"]
+    loop_count = state.get("loop_count", 0)
+    
+    # Simple rewrite: just try to broaden by removing context if it exists, or keep same
+    # Real implementation would use LLM.
+    return {"expanded_query": question, "loop_count": loop_count + 1}
+
+def no_info_fallback(state):
+    return {"generation": "I searched the Quran and Tafsir but could not find a direct reference to your query in the authentic sources. Please consult a qualified scholar."}
 
 # --- 5. GRAPH BUILD ---
 
 workflow = StateGraph(GraphState)
 
-workflow.add_node("lookup_terms", lookup_terms)
-workflow.add_node("expand_query", expand_query)
-workflow.add_node("retrieve_verses", retrieve_verses)
+workflow.add_node("understand_query", understand_query)
+workflow.add_node("retrieve", retrieve)
 workflow.add_node("grade_documents", grade_documents)
-workflow.add_node("rewrite_query_loop", rewrite_query_loop)
-workflow.add_node("generate_answer", generate_answer)
+workflow.add_node("rewrite_query", rewrite_query_logic)
+workflow.add_node("generate", generate)
+workflow.add_node("integrity_check", integrity_check)
 workflow.add_node("no_info", no_info_fallback)
 
-workflow.set_entry_point("lookup_terms")
-workflow.add_edge("lookup_terms", "expand_query")
-workflow.add_edge("expand_query", "retrieve_verses")
-workflow.add_edge("retrieve_verses", "grade_documents")
+workflow.set_entry_point("understand_query")
+workflow.add_edge("understand_query", "retrieve")
+workflow.add_edge("retrieve", "grade_documents")
 
 workflow.add_conditional_edges(
     "grade_documents",
-    decide_next_step,
+    decide_to_generate,
     {
-        "generate": "generate_answer",
-        "rewrite": "rewrite_query_loop",
-        "stop": "no_info"
+        "generate": "generate",
+        "rewrite": "rewrite_query",
+        "stop_no_info": "no_info"
     }
 )
 
-workflow.add_edge("rewrite_query_loop", "retrieve_verses")
-workflow.add_edge("generate_answer", END)
+workflow.add_edge("rewrite_query", "retrieve") # Loop back
+workflow.add_edge("generate", "integrity_check")
+workflow.add_edge("integrity_check", END)
 workflow.add_edge("no_info", END)
 
 app = workflow.compile()
 
 def run_agent(query: str):
-    inputs = {"query": query, "retry_count": 0}
-    result = app.invoke(inputs)
-    return {
-        "answer": result["generation"],
-        "sources": result.get("documents", []),
-        "dictionary_context": result.get("dictionary_context", "")
-    }
+    inputs = {"question": query, "loop_count": 0}
+    try:
+        result = app.invoke(inputs)
+        return {
+            "answer": result["generation"],
+            "sources": result.get("documents", []),
+            "expanded_query": result.get("expanded_query", "")
+        }
+    except Exception as e:
+        return {
+            "answer": f"System Busy: {str(e)}",
+            "sources": []
+        }

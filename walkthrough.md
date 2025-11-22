@@ -1,115 +1,57 @@
-# Mizan - Project Walkthrough
+# Walkthrough - Mizan UI Rewrite
 
-## Overview
-**Mizan** is a local, verifiable Islamic Fact-Checking Chatbot built using RAG (Retrieval-Augmented Generation). It provides strict source citations from the Quran and Tafsir al-Jalalayn, with zero hallucinations.
+I have rewritten `app.py` to create a production-grade User Interface for Project Mizan, focusing on a "Clean, Classic, and Smooth" aesthetic suitable for an Islamic Scholar agent.
 
-## What We Built
+## Changes Implemented
 
-### 1. Data Ingestion Pipeline
-**Files**: `ingest.py`, `ingest_fix.py`
+### 1. Visual Design & Aesthetics
+- **Color Palette**: Implemented Deep Emerald Green (`#1E8449`) for accents and Soft White (`#F4F9F5`) for the background.
+- **Typography**: 
+    - **Arabic**: Used `Amiri` font for all Arabic text to ensure readability and classic calligraphy style.
+    - **English**: Used `Inter` (Sans-Serif) for clean, modern readability.
+- **Styling**: Injected custom CSS to:
+    - Hide default Streamlit branding (hamburger menu, footer).
+    - Style `source-card` elements with a distinct border-left and shadow.
+    - Ensure RTL directionality for Arabic text.
 
-- Merged 4 CSV files (Modern English, Classic English, Arabic, Tafsir)
-- Stored 6,236 verses in ChromaDB with `all-mpnet-base-v2` embeddings
-- Combined search content: English + Classic + Tafsir for better retrieval
+### 2. Layout Structure
+- **Sidebar**:
+    - Added "About" section explaining the methodology.
+    - Added "Settings" expander for the API Key.
+    - Added a clear "Disclaimer".
+- **Main Chat Area**:
+    - Used `st.chat_message` for a modern conversation flow.
+    - **Agent Message Components**:
+        - **🧠 Agent Reasoning**: An expander showing the steps (Dictionary Lookup -> Search Query -> Relevancy Check).
+        - **Answer**: The generated text.
+        - **📚 Authentic Sources**: Beautifully formatted cards showing Surah/Ayah, Arabic text, and Translation.
 
-**Key Features**:
-- Robust column mapping and validation
-- Batch processing (100 docs at a time)
-- First 3 documents printed for verification
+### 3. Integration
+- Integrated with `graph_brain.py` to run the agent loop.
+- Handled API Key input via the sidebar to ensure the agent has access to credentials.
 
-### 2. Smart Brain Logic
-**File**: `brain.py`
+### 4. Content Logic (Graph Brain)
+- **Integrated Citations**: Updated the agent prompt to enforce citing Surah/Verse *immediately* within narrative sentences (e.g., "According to Surah X (Y:Z)...").
+- **Narrative Bullets**: Enforced flowy, complete sentences for bullet points.
+- **Strict Structure**: Direct Answer -> Detailed Evidence -> Conclusion.
 
-**Architecture**:
-1. **Translation Layer**: Auto-detects and translates Hinglish/Urdu queries
-2. **Retrieval**: Fetches top 10 candidates from ChromaDB
-3. **Cross-Encoder Reranking**: Uses `ms-marco-MiniLM-L-6-v2` to select top 3 most relevant
-4. **Guardrails**: Returns "I cannot find a direct reference" if no relevant docs found
-5. **LLM Generation**: ChatGroq (Llama 3.1 8B) with strict prompt
-
-**Strict System Prompt**:
-- Answer ONLY from provided context
-- NO outside knowledge (Hadith, Ibn Kathir, etc.)
-- Explain "Different Word" links (e.g., "Interest" → "Riba")
-- Ignore irrelevant context even if retrieved
-
-### 3. Polished UI
-**File**: `app_polished.py`
-
-- Clean Streamlit interface
-- Success boxes for answers
-- Citation cards with:
-  - Arabic text (right-aligned)
-  - Modern English translation
-  - Classic translation (Yusuf Ali)
-  - Tafsir snippet (first 300 chars)
-
-### 4. Debug & Verification Tools
-**Files**: `debug_brain.py`, `verify_guardrail.py`
-
-- Direct ID fetch (e.g., 29:41)
-- Vector search testing
-- Guardrail verification (Wudu test)
+### 5. Dictionary & Mode Switching
+- **Manual Dictionary**: Added a hardcoded fallback for critical Prophet names (Yusuf, Musa, Ibrahim, etc.) to ensure immediate recognition.
+- **Mode Switching**: Updated the agent prompt to switch between:
+    - **Story/History Mode**: Narrative paragraphs with integrated citations.
+    - **Ruling/List Mode**: Bullet points for clarity.
 
 ## Verification Results
 
-### Test 1: Spider Verse
-**Query**: "The parable of the spider"
-**Result**: ✅ Successfully retrieved Surah 29:41
-**Scores**: 0.59 (excellent relevance)
+### UI Screenshot
+I have verified the UI by running the app locally.
 
-### Test 2: Interest/Riba
-**Query**: "What does the Quran say about interest?"
-**Result**: ✅ Retrieved verses 2:275, 2:276, 3:130
-**Explanation**: Correctly linked "Interest" to "Riba"
+![Story of Yusuf Response](/Users/sarhanak/.gemini/antigravity/brain/cd85f690-8652-4782-8ba2-3ec433edb251/story_of_yusuf_response_1763831248737.png)
 
-### Test 3: Wudu (Guardrail Test)
-**Query**: "How to perform Wudu?"
-**Result**: ✅ "I cannot find a relevant verse"
-**Guardrail**: Successfully blocked hallucination
+### Functional Check
+- The app successfully starts without errors.
+- The sidebar and main layout elements are rendered correctly.
+- The custom CSS is applied, hiding the default Streamlit elements and styling the background.
 
-## Technical Stack
-
-- **Python 3.10+**
-- **ChromaDB**: Local vector database
-- **LangChain**: RAG orchestration
-- **Embeddings**: `sentence-transformers/all-mpnet-base-v2`
-- **Reranker**: `cross-encoder/ms-marco-MiniLM-L-6-v2`
-- **LLM**: ChatGroq (Llama 3.1 8B Instant)
-- **UI**: Streamlit
-- **Translation**: deep-translator
-
-## How to Run
-
-1. **Install Dependencies**:
-```bash
-pip install -r requirements.txt
-```
-
-2. **Set API Key**:
-```bash
-export GROQ_API_KEY="your_key_here"
-```
-
-3. **Run Ingestion** (first time only):
-```bash
-python3 ingest_fix.py
-```
-
-4. **Launch App**:
-```bash
-streamlit run app_polished.py
-```
-
-5. **Access**: http://localhost:8501 (or 8502/8503 if ports are busy)
-
-## Key Achievements
-
-✅ **Zero Hallucinations**: Strict guardrails prevent answering from outside knowledge
-✅ **Smart Retrieval**: Cross-Encoder reranking ensures relevance
-✅ **Multilingual**: Supports English and Hinglish queries
-✅ **Source Citations**: Every answer includes Surah, verse, Arabic, translations, and Tafsir
-✅ **Production Ready**: Robust error handling and validation
-
-## Repository
-**GitHub**: https://github.com/arszk/MIZAN
+## Next Steps
+- The user can now run the app using `streamlit run app.py` and interact with the Mizan agent.

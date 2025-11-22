@@ -1,40 +1,19 @@
-# Project Mizan Tasks
+# Mizan 2.0: The Agentic Scholar
 
-- [x] **Task 1: Data Ingestion (`ingest.py`)** <!-- id: 0 -->
-    - [x] Explore data files and confirm CSV structure <!-- id: 1 -->
-    - [x] Create `ingest.py` to merge CSVs and store in ChromaDB <!-- id: 2 -->
-    - [x] Verify database creation <!-- id: 3 -->
-- [x] **Task 2: The Brain (`brain.py`)** <!-- id: 4 -->
-    - [x] Implement translation logic <!-- id: 5 -->
-    - [x] Implement RAG retrieval logic <!-- id: 6 -->
-    - [x] Implement generation with ChatGroq <!-- id: 7 -->
-- [x] **Task 3: User Interface (`app.py`)** <!-- id: 8 -->
-    - [x] Setup Streamlit app <!-- id: 9 -->
-    - [x] Implement chat interface <!-- id: 10 -->
-    - [x] Implement citation card <!-- id: 11 -->
-- [x] **Task 4: Pipeline Refinement (Production Build)** <!-- id: 12 -->
-    - [x] Create `ingest_fix.py` (Robust Ingestion) <!-- id: 13 -->
-    - [x] Run `ingest_fix.py` and verify output <!-- id: 14 -->
-    - [x] Create `debug_brain.py` and verify "Spider" retrieval <!-- id: 15 -->
-    - [x] Update `brain.py` with new logic and metadata <!-- id: 16 -->
-    - [x] Create `app_polished.py` (Improved UI) <!-- id: 17 -->
-- [x] **Task 5: Brain Upgrade (Smart Logic)** <!-- id: 18 -->
-    - [x] Update `requirements.txt` with reranking libs <!-- id: 19 -->
-    - [x] Rewrite `brain.py` with Cross-Encoder Reranking <!-- id: 20 -->
-- [x] **Task 5: Brain Upgrade (Smart Logic)** <!-- id: 18 -->
-    - [x] Update `requirements.txt` with reranking libs <!-- id: 19 -->
-    - [x] Rewrite `brain.py` with Cross-Encoder Reranking <!-- id: 20 -->
-    - [x] Verify new logic with `debug_brain.py` <!-- id: 21 -->
-    - [x] Overwrite `brain.py` with strict guardrails <!-- id: 22 -->
-- [x] **Task 6: Agentic RAG Upgrade (LangGraph)** <!-- id: 23 -->
-    - [x] Update `requirements.txt` with `langgraph` <!-- id: 24 -->
-    - [x] Create `graph_brain.py` with CRAG architecture <!-- id: 25 -->
-    - [x] Implement RETRIEVE node with Query Expansion <!-- id: 26 -->
-    - [x] Implement GRADE_DOCUMENTS node with LLM Judge <!-- id: 27 -->
-    - [x] Implement REWRITE/LOOP logic <!-- id: 28 -->
-    - [x] Verify with `test_agent.py` <!-- id: 29 -->
-- [x] **Task 7: Mizan 2.0 (Dual-Store Agentic RAG)** <!-- id: 30 -->
-    - [x] Create `ingest_v2.py` (Merge 7 files, 2 Collections) <!-- id: 31 -->
-    - [x] Create `graph_brain.py` (5-Node LangGraph with Dictionary Lookup) <!-- id: 32 -->
-    - [x] Update `app.py` to show Dictionary Context <!-- id: 33 -->
-    - [x] Verify with `test_mizan_2.py` <!-- id: 34 -->
+- [x] **Phase 1: The Data Surgery (Strict Ingestion)** <!-- id: 0 -->
+    - [x] Create `ingest_v2.py` with strict auditing and dual collections <!-- id: 1 -->
+    - [x] Verify ingestion (audit counts, schema check) <!-- id: 2 -->
+- [x] **Phase 2: The State Graph (LangGraph)** <!-- id: 3 -->
+    - [x] Create `graph_brain.py` with `GraphState` schema <!-- id: 4 -->
+    - [x] Implement Node: `understand_query` (Dictionary Lookup) <!-- id: 5 -->
+    - [x] Implement Node: `retrieve` (Unified Store) <!-- id: 6 -->
+    - [x] Implement Node: `grade_documents` (The Critic) <!-- id: 7 -->
+    - [x] Implement Node: `generate` (The Librarian) <!-- id: 8 -->
+    - [x] Implement Node: `integrity_check` (The Safety Guard) <!-- id: 11 -->
+    - [x] Implement Edges: `decide_to_generate` & Circuit Breaker <!-- id: 12 -->
+    - [x] Verify with `test_brain_v2.py` <!-- id: 13 -->
+- [x] **Phase 3: The Interface** <!-- id: 9 -->
+    - [x] Update `app.py` to use `graph_brain` <!-- id: 10 -->
+    - [x] Visualize "Agent's Understanding" (Expanded Query) <!-- id: 14 -->
+    - [x] Display Rich Citations (Arabic/English/Tafsir) <!-- id: 15 -->
+    - [x] Verify UI with `streamlit run app.py` <!-- id: 16 -->

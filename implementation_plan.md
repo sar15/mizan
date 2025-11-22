@@ -1,51 +1,35 @@
-# Implementation Plan - Project Mizan
+# Mizan 2.0: The Agentic Scholar - Implementation Plan
 
-## Goal Description
-Build a local, verifiable Islamic Fact-Checking Chatbot "Mizan" using RAG.
-The system will ingest Quranic data from CSVs into ChromaDB and use a local LLM (via Groq) to answer questions with strict sourcing.
+## Goal
+Build a strict, source-based Islamic Research Assistant using LangGraph.
 
-## User Review Required
-> [!IMPORTANT]
-> **Data Merge Strategy**:
-> - We assume `The Quran Dataset.csv` is the master record (Modern English).
-> - We assume `Abdullah_Yusuf_Ali_translation.csv` contains footnotes which will be filtered out by Left Joining on `(Surah, Ayat)`.
-> - We assume `Tafsir_al-Jalalayn_tafseer.csv` is perfectly ordered (1:1 to 114:6) and will merge by row index.
+## Architecture: The "Think-Loop"
 
-## Proposed Changes
+### 1. Data Layer (Dual Vector Stores)
+- **`mizan_knowledge_base`**: The Golden Record.
+    - **Content**: Concatenation of Modern English, Yusuf Ali, and Tafsir al-Jalalayn.
+    - **Metadata**: `surah_name`, `ayah_number`, `arabic_text`, `source_type="Quran"`, `madhhab="General"`.
+- **`mizan_dictionary`**: Semantic Lexicon.
+    - **Content**: Definitions of Islamic terms (e.g., "Gheebah", "Qazf").
+    - **Purpose**: Used by the Dictionary Node to understand user intent before retrieval.
 
-### Data Ingestion
-#### [NEW] [ingest.py](file:///Users/sarhanak/Documents/mizan/ingest.py)
-- **Libraries**: `pandas`, `chromadb`, `langchain_huggingface`, `langchain_chroma`.
-- **Logic**:
-    1. Load 3 CSVs (Master, Yusuf Ali, Tafsir).
-    2. Merge into a single DataFrame.
-    3. Convert to LangChain `Document` objects.
-    4. Persist to `./mizan_chroma_db`.
+### 2. The Brain (LangGraph)
+- **Node 1: Intent Classifier**: Determines if query is Fatwa (Block), Explanation, or Comparison.
+- **Node 2: Dictionary Lookup**: Semantic Router to find synonyms/definitions.
+- **Node 3: Retrieval**: Searches `mizan_knowledge_base` with expanded query.
+- **Node 4: Relevance Grader**: LLM scores results (0-2).
+    - **0 (Trash)**: Loop back to Rewrite.
+    - **1 (Context)**: Keep but warn.
+    - **2 (Direct)**: Proceed to Generate.
+- **Node 5: Generator**: Strict citation-based answer generation.
 
-### The Brain
-#### [NEW] [brain.py](file:///Users/sarhanak/Documents/mizan/brain.py)
-- **Libraries**: `langchain`, `langchain_groq`, `deep_translator`.
-- **Logic**:
-    - `get_answer(query)` function.
-    - Translation layer.
-    - RAG retrieval (Top 3).
-    - Prompt engineering for strict fact-checking.
+### 3. Safety & Integrity
+- **Circuit Breaker**: Max 3 loops to prevent infinite searching.
+- **Integrity Checker**: Verifies final quotes against Uthmani script (future scope).
 
-### User Interface
-#### [NEW] [app.py](file:///Users/sarhanak/Documents/mizan/app.py)
-- **Libraries**: `streamlit`.
-- **Logic**:
-    - Chat interface.
-    - Session state management.
-    - Citation card display.
-
-## Verification Plan
-### Automated Tests
-- Run `python ingest.py` and check for "Successfully stored" message.
-- Verify ChromaDB collection count = 6236.
-- Run `python brain.py` (manual test script) to query "Who is Allah?" and check output.
-
-### Manual Verification
-- Launch `streamlit run app.py`.
-- Ask questions in Hinglish and English.
-- Verify citations match the answer.
+## Phase 1: Data Surgery (Current)
+- **Script**: `ingest_v2.py`
+- **Strictness**: 
+    - Audit row counts (Quran vs Tafsir).
+    - Abort on mismatch.
+    - Unified Schema creation.

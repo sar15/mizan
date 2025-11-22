@@ -5,48 +5,88 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 import os
 import shutil
+import sys
+
+# --- CONFIGURATION ---
+DATA_DIR = "data"
+DB_DIR = "./mizan_chroma_db"
+COLLECTION_MAIN = "mizan_knowledge_base"
+COLLECTION_DICT = "mizan_dictionary"
+
+def print_phase(phase, message):
+    print(f"\n🔹 [PHASE {phase}] {message}")
+
+def fail_loudly(message):
+    print(f"\n❌ CRITICAL ERROR: {message}")
+    sys.exit(1)
 
 def ingest_v2():
-    print("🚀 Starting Mizan 2.0 Ingestion (Dual Store)...")
+    print("🚀 Starting Mizan 2.0 Data Surgery...")
 
-    # 1. Reset Database
-    persist_directory = "./mizan_chroma_db"
-    if os.path.exists(persist_directory):
-        print(f"🧹 Deleting existing database at {persist_directory}...")
-        shutil.rmtree(persist_directory)
+    # --- PHASE 1: STRICT AUDITING ---
+    print_phase(1, "Auditing Data Integrity...")
     
-    data_dir = "data"
-    
-    # --- STORE 1: KNOWLEDGE BASE (The Quran) ---
-    print("\n📚 Building Knowledge Base (mizan_quran_main)...")
-    
-    # Load Files
-    try:
-        df_master = pd.read_csv(os.path.join(data_dir, "The Quran Dataset.csv"))
-        df_yusuf = pd.read_csv(os.path.join(data_dir, "Abdullah_Yusuf_Ali_translation.csv"))
-        df_tafsir = pd.read_csv(os.path.join(data_dir, "Tafsir_al-Jalalayn_tafseer.csv"))
-        df_info = pd.read_csv(os.path.join(data_dir, "surah_info.csv"))
-        df_lemmas = pd.read_csv(os.path.join(data_dir, "quran_lemmas.csv"))
-    except FileNotFoundError as e:
-        print(f"❌ Error loading files: {e}")
-        return
+    path_master = os.path.join(DATA_DIR, "The Quran Dataset.csv")
+    path_tafsir = os.path.join(DATA_DIR, "Tafsir_al-Jalalayn_tafseer.csv")
+    path_yusuf = os.path.join(DATA_DIR, "Abdullah_Yusuf_Ali_translation.csv")
+    path_dict = os.path.join(DATA_DIR, "quran_dictionary.csv")
 
-    # Clean & Rename
-    df_master = df_master.rename(columns={
-        "text_formatayah_ensort": "ayah_en",
-        "text_formatayah_arsort": "ayah_ar",
-        "ayah_en": "english",
-        "ayah_ar": "arabic",
-        "surah_name_en": "surah_name"
-    })
-    df_yusuf = df_yusuf.rename(columns={"Surah": "surah_no", "Ayat": "ayah_no_surah", "Verse": "classic"})
-    
-    # Ensure Numeric IDs
-    for df in [df_master, df_yusuf]:
-        df['surah_no'] = pd.to_numeric(df['surah_no'], errors='coerce').fillna(0).astype(int)
-        df['ayah_no_surah'] = pd.to_numeric(df['ayah_no_surah'], errors='coerce').fillna(0).astype(int)
+    if not os.path.exists(path_master): fail_loudly(f"Missing {path_master}")
+    if not os.path.exists(path_tafsir): fail_loudly(f"Missing {path_tafsir}")
 
-    # Merge Main Texts
+    df_master = pd.read_csv(path_master)
+    df_tafsir = pd.read_csv(path_tafsir)
+
+    count_master = len(df_master)
+    count_tafsir = len(df_tafsir)
+
+    print(f"   - Master Dataset Rows: {count_master}")
+    print(f"   - Tafsir Dataset Rows: {count_tafsir}")
+
+    if count_master != count_tafsir:
+        fail_loudly(f"Row mismatch! Master ({count_master}) != Tafsir ({count_tafsir}). Aborting.")
+    
+    print("   ✅ Audit Passed: 1:1 Mapping Confirmed.")
+
+    # --- PHASE 2: LOADING & NORMALIZATION ---
+    print_phase(2, "Loading and Normalizing Data...")
+
+    # Load Yusuf Ali
+    if not os.path.exists(path_yusuf): fail_loudly(f"Missing {path_yusuf}")
+    df_yusuf = pd.read_csv(path_yusuf)
+    
+    # Normalize Master
+    # Check expected columns
+    expected_cols = ["surah_no", "ayah_no_surah", "ayah_en", "ayah_ar", "surah_name_en"]
+    for col in expected_cols:
+        if col not in df_master.columns:
+            # Try to map if names are slightly different based on previous knowledge
+            if col == "ayah_en" and "text_formatayah_ensort" in df_master.columns:
+                df_master.rename(columns={"text_formatayah_ensort": "ayah_en"}, inplace=True)
+            elif col == "ayah_ar" and "text_formatayah_arsort" in df_master.columns:
+                df_master.rename(columns={"text_formatayah_arsort": "ayah_ar"}, inplace=True)
+            else:
+                # If still missing, fail
+                if col not in df_master.columns:
+                    fail_loudly(f"Missing column '{col}' in Master Dataset. Found: {df_master.columns.tolist()}")
+
+    # Normalize Yusuf Ali
+    # Expected: Surah, Ayat, Verse
+    if "Surah" in df_yusuf.columns: df_yusuf.rename(columns={"Surah": "surah_no"}, inplace=True)
+    if "Ayat" in df_yusuf.columns: df_yusuf.rename(columns={"Ayat": "ayah_no_surah"}, inplace=True)
+    if "Verse" in df_yusuf.columns: df_yusuf.rename(columns={"Verse": "classic"}, inplace=True)
+
+    # Ensure Numeric IDs for merging
+    df_master['surah_no'] = pd.to_numeric(df_master['surah_no'], errors='coerce').fillna(0).astype(int)
+    df_master['ayah_no_surah'] = pd.to_numeric(df_master['ayah_no_surah'], errors='coerce').fillna(0).astype(int)
+    
+    df_yusuf['surah_no'] = pd.to_numeric(df_yusuf['surah_no'], errors='coerce').fillna(0).astype(int)
+    df_yusuf['ayah_no_surah'] = pd.to_numeric(df_yusuf['ayah_no_surah'], errors='coerce').fillna(0).astype(int)
+
+    # --- PHASE 3: MERGING ---
+    print_phase(3, "Merging Datasets...")
+    
+    # Merge Master + Yusuf Ali
     merged_df = pd.merge(
         df_master, 
         df_yusuf[['surah_no', 'ayah_no_surah', 'classic']], 
@@ -54,99 +94,92 @@ def ingest_v2():
         how='left'
     )
     
-    # Merge Tafsir (Row-wise assumption as before)
+    # Merge Tafsir (Assuming row alignment as validated in Phase 1)
+    # We assume Tafsir file is in order. If it has IDs, we should use them.
+    # Based on previous knowledge, it lacks IDs. We trust the row count audit.
     merged_df['tafsir'] = df_tafsir['Tafseer'] if 'Tafseer' in df_tafsir.columns else ""
     
-    # Merge Surah Info
-    # Assuming surah_info has 'SurahNumber'
-    if 'SurahNumber' in df_info.columns:
-        df_info = df_info.rename(columns={'SurahNumber': 'surah_no'})
-        merged_df = pd.merge(merged_df, df_info, on='surah_no', how='left')
-    
-    # Merge Lemmas (Optional/Complex - simplified for now: join on surah/ayah if available, else skip)
-    # Assuming lemma file structure matches. If not, we skip for safety or do a simple join.
-    # For this task, we'll focus on the core text.
-    
     merged_df.fillna("", inplace=True)
+    print(f"   ✅ Merged Data Shape: {merged_df.shape}")
+
+    # --- PHASE 4: DOCUMENT CREATION ---
+    print_phase(4, "Creating Golden Records...")
     
-    # Create Documents
-    docs_quran = []
+    documents = []
     for _, row in merged_df.iterrows():
-        # Rich Content Block
-        surah_title = row.get('EnglishTitle', row['surah_name'])
-        place = row.get('PlaceOfRevelation', 'Unknown')
-        
+        # Unified Content Block
         content = (
-            f"Surah {surah_title} (Surah {row['surah_no']}) - {place}. "
-            f"Verse {row['ayah_no_surah']}. "
-            f"Text: {row['english']} "
+            f"Surah {row['surah_name_en']} ({row['surah_no']}:{row['ayah_no_surah']}). "
+            f"Modern: {row['ayah_en']} "
             f"Classic: {row['classic']} "
             f"Tafsir: {row['tafsir']}"
         )
         
         metadata = {
-            "source": "Quran",
-            "surah": str(surah_title),
-            "id": f"{row['surah_no']}:{row['ayah_no_surah']}",
-            "arabic": str(row['arabic']),
-            "english": str(row['english']),
-            "classic": str(row['classic']),
-            "tafsir": str(row['tafsir']),
-            "revelation_place": str(place)
+            "surah_name": str(row['surah_name_en']),
+            "ayah_number": int(row['ayah_no_surah']),
+            "surah_number": int(row['surah_no']),
+            "arabic_text": str(row['ayah_ar']),
+            "source_type": "Quran",
+            "madhhab": "General",
+            "id": f"{row['surah_no']}:{row['ayah_no_surah']}"
         }
         
-        docs_quran.append(Document(page_content=content, metadata=metadata, id=metadata["id"]))
+        documents.append(Document(page_content=content, metadata=metadata, id=metadata["id"]))
+        
+    print(f"   ✅ Prepared {len(documents)} documents for Knowledge Base.")
 
-    # Store Quran
+    # --- PHASE 5: VECTOR STORE BUILD ---
+    print_phase(5, "Building Vector Stores...")
+    
+    # Reset DB
+    if os.path.exists(DB_DIR):
+        print(f"   🧹 Clearing existing database at {DB_DIR}...")
+        shutil.rmtree(DB_DIR)
+        
     embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     
-    vectorstore_quran = Chroma(
-        collection_name="mizan_quran_main",
+    # Store A: Knowledge Base
+    print(f"   📚 Ingesting Collection: {COLLECTION_MAIN}")
+    vectorstore_main = Chroma(
+        collection_name=COLLECTION_MAIN,
         embedding_function=embedding_function,
-        persist_directory=persist_directory
+        persist_directory=DB_DIR
     )
     
     batch_size = 100
-    print(f"🚀 Ingesting {len(docs_quran)} verses...")
-    for i in range(0, len(docs_quran), batch_size):
-        vectorstore_quran.add_documents(docs_quran[i:i+batch_size])
-        
-    # --- STORE 2: LEXICON (The Dictionary) ---
-    print("\n📖 Building Lexicon (mizan_dictionary)...")
+    for i in range(0, len(documents), batch_size):
+        vectorstore_main.add_documents(documents[i:i+batch_size])
+        print(f"      - Processed {min(i+batch_size, len(documents))}/{len(documents)}", end='\r')
+    print("\n      ✅ Knowledge Base Complete.")
     
-    try:
-        df_dict = pd.read_csv(os.path.join(data_dir, "quran_dictionary.csv"))
-        
-        docs_dict = []
+    # Store B: Dictionary
+    print(f"   📖 Ingesting Collection: {COLLECTION_DICT}")
+    if os.path.exists(path_dict):
+        df_dict = pd.read_csv(path_dict)
+        dict_docs = []
         for _, row in df_dict.iterrows():
             term = row.get('title', '')
             definition = row.get('translation', '')
-            translit = row.get('transliteration', '')
-            
-            content = f"Term: {term} ({translit}). Definition: {definition}"
-            
-            metadata = {
-                "source": "Dictionary",
-                "term": str(term),
-                "definition": str(definition)
-            }
-            
-            docs_dict.append(Document(page_content=content, metadata=metadata))
+            content = f"Term: {term}. Definition: {definition}"
+            metadata = {"source_type": "Dictionary", "term": str(term)}
+            dict_docs.append(Document(page_content=content, metadata=metadata))
             
         vectorstore_dict = Chroma(
-            collection_name="mizan_dictionary",
+            collection_name=COLLECTION_DICT,
             embedding_function=embedding_function,
-            persist_directory=persist_directory
+            persist_directory=DB_DIR
         )
         
-        print(f"🚀 Ingesting {len(docs_dict)} dictionary terms...")
-        for i in range(0, len(docs_dict), batch_size):
-            vectorstore_dict.add_documents(docs_dict[i:i+batch_size])
-        
-    except FileNotFoundError:
-        print("⚠️ Dictionary file not found. Skipping Lexicon store.")
+        # Batch dictionary too
+        for i in range(0, len(dict_docs), batch_size):
+            vectorstore_dict.add_documents(dict_docs[i:i+batch_size])
+            print(f"      - Processed {min(i+batch_size, len(dict_docs))}/{len(dict_docs)}", end='\r')
+        print("\n      ✅ Dictionary Complete.")
+    else:
+        print("   ⚠️ Dictionary file not found. Skipping.")
 
-    print(f"\n🎉 Mizan 2.0 Ingestion Complete at '{persist_directory}'.")
+    print("\n🎉 Mizan 2.0 Data Surgery Successful!")
 
 if __name__ == "__main__":
     ingest_v2()
