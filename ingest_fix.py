@@ -18,52 +18,32 @@ def ingest_fix():
     # 2. Load Data
     data_dir = "data"
     
-    # File A: Master Dataset
+    # Load CSVs
     df_master = pd.read_csv(os.path.join(data_dir, "The Quran Dataset.csv"))
-    print(f"✅ Loaded Master Dataset: {len(df_master)} rows")
-    
-    # File B: Yusuf Ali
     df_yusuf = pd.read_csv(os.path.join(data_dir, "Abdullah_Yusuf_Ali_translation.csv"))
-    print(f"✅ Loaded Yusuf Ali: {len(df_yusuf)} rows")
-    
-    # File C: Tafsir
     df_tafsir = pd.read_csv(os.path.join(data_dir, "Tafsir_al-Jalalayn_tafseer.csv"))
-    print(f"✅ Loaded Tafsir: {len(df_tafsir)} rows")
+    print("✅ Loaded all datasets.")
 
-    # 3. Clean IDs & Rename Columns
-    # Master
-    # Check for complex headers if they exist, otherwise assume standard
-    # The user mentioned 'text_formatayah_ensort' etc. Let's check if they exist and rename.
-    # If not, we stick to what we saw earlier: surah_no, ayah_no_surah, ayah_en, ayah_ar
-    
-    # Map Master Columns
-    # First, handle potential weird headers
-    possible_weird_cols = {
+    # 3. Clean & Map Columns
+    # Rename Master
+    df_master = df_master.rename(columns={
         "text_formatayah_ensort": "ayah_en",
-        "text_formatayah_arsort": "ayah_ar"
-    }
-    df_master = df_master.rename(columns=possible_weird_cols)
-
-    # Now standard rename
-    master_rename_map = {
+        "text_formatayah_arsort": "ayah_ar",
         "ayah_en": "english",
         "ayah_ar": "arabic",
         "surah_name_en": "surah_name"
-    }
-    df_master = df_master.rename(columns=master_rename_map)
+    })
     
-    # Ensure IDs are int
-    df_master['surah_no'] = pd.to_numeric(df_master['surah_no'], errors='coerce').fillna(0).astype(int)
-    df_master['ayah_no_surah'] = pd.to_numeric(df_master['ayah_no_surah'], errors='coerce').fillna(0).astype(int)
-
-    # Yusuf Ali
+    # Rename Yusuf Ali
     df_yusuf = df_yusuf.rename(columns={"Surah": "surah_no", "Ayat": "ayah_no_surah", "Verse": "classic"})
-    df_yusuf['surah_no'] = pd.to_numeric(df_yusuf['surah_no'], errors='coerce').fillna(0).astype(int)
-    df_yusuf['ayah_no_surah'] = pd.to_numeric(df_yusuf['ayah_no_surah'], errors='coerce').fillna(0).astype(int)
+    
+    # Numeric IDs
+    for df in [df_master, df_yusuf]:
+        df['surah_no'] = pd.to_numeric(df['surah_no'], errors='coerce').fillna(0).astype(int)
+        df['ayah_no_surah'] = pd.to_numeric(df['ayah_no_surah'], errors='coerce').fillna(0).astype(int)
 
     # 4. Merge
     print("🔄 Merging datasets...")
-    # Merge Master + Yusuf Ali
     merged_df = pd.merge(
         df_master, 
         df_yusuf[['surah_no', 'ayah_no_surah', 'classic']], 
@@ -71,82 +51,50 @@ def ingest_fix():
         how='left'
     )
     
-    # Merge Tafsir (By Index)
-    if len(df_tafsir) != 6236:
-        print(f"⚠️ Warning: Tafsir length is {len(df_tafsir)}, expected 6236.")
-    
-    # Reset indices to be safe
-    merged_df = merged_df.reset_index(drop=True)
-    df_tafsir = df_tafsir.reset_index(drop=True)
-    
-    # Assign Tafsir column (assuming 'Tafseer' is the column name)
-    merged_df['tafsir'] = df_tafsir['Tafseer']
-    
-    # Fill NaNs
-    merged_df['classic'] = merged_df['classic'].fillna("")
-    merged_df['tafsir'] = merged_df['tafsir'].fillna("")
-    merged_df['english'] = merged_df['english'].fillna("")
-    merged_df['arabic'] = merged_df['arabic'].fillna("")
+    merged_df['tafsir'] = df_tafsir['Tafseer'] if 'Tafseer' in df_tafsir.columns else ""
+    merged_df.fillna("", inplace=True)
 
     print(f"✅ Final Merged Data: {len(merged_df)} rows")
 
-    # 5. Prepare Documents
+    # 5. Prepare Documents with "Searchable Content"
     documents = []
     for index, row in merged_df.iterrows():
-        # Combined Content for Search
-        # "Spider" -> ayah_en + classic + tafsir
-        page_content = f"{row['english']} {row['classic']} {row['tafsir']}"
+        # --- THE KEY FIX ---
+        # We explicitly add 'surah_name' to the content so "Surah Yusuf" queries work.
+        page_content = f"Surah {row['surah_name']} {row['english']} {row['classic']} {row['tafsir']}"
         
-        # Metadata
         metadata = {
             "source": "Quran",
-            "surah": str(row['surah_name']), # Renamed column
+            "surah": str(row['surah_name']),
             "id": f"{row['surah_no']}:{row['ayah_no_surah']}",
             "arabic": str(row['arabic']),
-            "english": str(row['english']), # Renamed column
+            "english": str(row['english']),
             "classic": str(row['classic']),
             "tafsir": str(row['tafsir']),
             "surah_no": int(row['surah_no']),
             "ayah_no": int(row['ayah_no_surah'])
         }
         
-        doc = Document(
-            page_content=page_content,
-            metadata=metadata,
-            id=metadata["id"]
-        )
+        doc = Document(page_content=page_content, metadata=metadata, id=metadata["id"])
         documents.append(doc)
 
-    # Validation: Print first 3
-    print("\n🔍 Validation - First 3 Documents:")
-    for i in range(3):
-        print(f"Doc {i+1}: ID={documents[i].metadata['id']}")
-        print(f"Content Preview: {documents[i].page_content[:100]}...")
-        print("-" * 50)
-
-    # 6. Vectorize & Store (Batching)
-    print("⏳ Initializing ChromaDB and Embeddings...")
+    # 6. Vectorize & Store
+    print("⏳ Initializing ChromaDB (mpnet-base-v2)...")
     embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     
-    batch_size = 100
-    total_docs = len(documents)
-    
-    # Initialize Chroma (will create directory)
     vectorstore = Chroma(
         collection_name="mizan_knowledge_base",
         embedding_function=embedding_function,
         persist_directory=persist_directory
     )
     
-    print(f"🚀 Ingesting {total_docs} documents in batches of {batch_size}...")
-    
-    for i in range(0, total_docs, batch_size):
+    batch_size = 100
+    print(f"🚀 Ingesting {len(documents)} documents...")
+    for i in range(0, len(documents), batch_size):
         batch = documents[i:i+batch_size]
         vectorstore.add_documents(batch)
-        if i % 1000 == 0:
-            print(f"   Processed {i}/{total_docs}...")
 
-    print(f"🎉 Successfully stored {total_docs} verses in ChromaDB at '{persist_directory}'.")
+    print(f"🎉 Success! Database rebuilt at '{persist_directory}'.")
 
 if __name__ == "__main__":
     ingest_fix()
