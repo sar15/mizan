@@ -18,3 +18,7 @@
     - [x] Create `debug_brain.py` and verify "Spider" retrieval <!-- id: 15 -->
     - [x] Update `brain.py` with new logic and metadata <!-- id: 16 -->
     - [x] Create `app_polished.py` (Improved UI) <!-- id: 17 -->
+- [x] **Task 5: Brain Upgrade (Smart Logic)** <!-- id: 18 -->
+    - [x] Update `requirements.txt` with reranking libs <!-- id: 19 -->
+    - [x] Rewrite `brain.py` with Cross-Encoder Reranking <!-- id: 20 -->
+    - [x] Verify new logic with `debug_brain.py` <!-- id: 21 -->

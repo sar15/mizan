@@ -5,10 +5,13 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import CrossEncoderReranker
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
 # Initialize Components
 def get_brain_components():
-    # 1. Embeddings (Updated to mpnet)
+    # 1. Embeddings
     embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     
     # 2. Vector Store
@@ -17,13 +20,21 @@ def get_brain_components():
         embedding_function=embedding_function,
         collection_name="mizan_knowledge_base"
     )
-    # Retrieve Top 4
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
     
-    # 3. LLM
+    # 3. Reranker (The Smart Filter)
+    # We fetch 10, but only keep the top 3 best matches
+    model = HuggingFaceCrossEncoder(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    compressor = CrossEncoderReranker(model=model, top_n=3)
+    
+    base_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
+    compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor, base_retriever=base_retriever
+    )
+    
+    # 4. LLM
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GROQ_API_KEY environment variable not set. Please set it.")
+        raise ValueError("GROQ_API_KEY environment variable not set.")
         
     llm = ChatGroq(
         temperature=0,
@@ -31,41 +42,49 @@ def get_brain_components():
         groq_api_key=api_key
     )
     
-    return retriever, llm
+    return compression_retriever, llm
 
 def translate_query(query):
     try:
-        # Simple check: if query has non-ascii chars, assume it might need translation
-        # Or just always try to translate to English
         translator = GoogleTranslator(source='auto', target='en')
-        translated = translator.translate(query)
-        return translated
+        return translator.translate(query)
     except Exception as e:
-        print(f"Translation failed: {e}")
         return query
 
 def format_docs(docs):
-    # Updated to use new metadata keys
     formatted = []
     for doc in docs:
-        source = f"Surah {doc.metadata['surah']} ({doc.metadata['id']})"
-        content = f"Text: {doc.metadata['english']}\nClassic: {doc.metadata['classic']}\nTafsir: {doc.metadata['tafsir']}"
+        # Use safe .get() to prevent errors if metadata is missing
+        source = f"Surah {doc.metadata.get('surah', '?')} ({doc.metadata.get('id', '?')})"
+        content = f"Text: {doc.metadata.get('english', '')}\nClassic: {doc.metadata.get('classic', '')}\nTafsir: {doc.metadata.get('tafsir', '')}"
         formatted.append(f"Source: {source}\n{content}")
     return "\n\n".join(formatted)
 
 def get_answer(user_query):
-    # 1. Translate
     english_query = translate_query(user_query)
     
     retriever, llm = get_brain_components()
     
-    # 2. Retrieve
+    # Retrieve using the Smart Reranker
     docs = retriever.invoke(english_query)
     
-    # 3. Generate
-    system_prompt = """You are Mizan. Answer using ONLY the context. 
-    If the answer is missing, say 'I don't know'. 
-    Cite the Surah/Verse for every claim.
+    # Guardrail: If no relevant docs found after reranking
+    if not docs:
+        return {
+            "answer": "I cannot find a direct reference in the authentic sources matching your query.",
+            "sources": [],
+            "translated_query": english_query
+        }
+
+    # Updated System Prompt with "Different Word" Logic
+    system_prompt = """You are Mizan, an Islamic research assistant.
+    
+    Instructions:
+    1. Answer the user's question using the Context provided below (Quran Verses + Tafsir).
+    2. **The "Different Word" Rule:** If the user asks for a specific term and the Quran uses a different term/metaphor, you MUST explain the link.
+       - CORRECT Format: "The Quran uses the term [Quran Word] in Surah [X:Y], which the Tafsir explains refers to [User's Keyword]."
+    3. If the answer is not in the Context at all, say 'I cannot find a direct reference in the authentic sources.'
+    4. Be concise and respectful.
     
     Context:
     {context}
@@ -92,12 +111,12 @@ def get_answer(user_query):
 
 if __name__ == "__main__":
     # Test
-    q = "The parable of the spider"
+    q = "What does the Quran say about interest?"
     print(f"Query: {q}")
     try:
         result = get_answer(q)
         print(f"Translated: {result['translated_query']}")
         print("Answer:", result["answer"])
-        print("Sources:", [d.metadata['id'] for d in result['sources']])
+        print("Sources:", [d.metadata.get('id', '?') for d in result['sources']])
     except Exception as e:
         print(f"Error: {e}")
