@@ -21,4 +21,8 @@
 - [x] **Task 5: Brain Upgrade (Smart Logic)** <!-- id: 18 -->
     - [x] Update `requirements.txt` with reranking libs <!-- id: 19 -->
     - [x] Rewrite `brain.py` with Cross-Encoder Reranking <!-- id: 20 -->
+- [x] **Task 5: Brain Upgrade (Smart Logic)** <!-- id: 18 -->
+    - [x] Update `requirements.txt` with reranking libs <!-- id: 19 -->
+    - [x] Rewrite `brain.py` with Cross-Encoder Reranking <!-- id: 20 -->
     - [x] Verify new logic with `debug_brain.py` <!-- id: 21 -->
+    - [x] Overwrite `brain.py` with strict guardrails <!-- id: 22 -->

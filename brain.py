@@ -21,8 +21,8 @@ def get_brain_components():
         collection_name="mizan_knowledge_base"
     )
     
-    # 3. Reranker (The Smart Filter)
-    # We fetch 10, but only keep the top 3 best matches
+    # 3. Reranker (The "Smart Filter" - Fixes the Wudu Issue)
+    # We fetch 10 candidates, but the Reranker only keeps the ones that ACTUALLY match.
     model = HuggingFaceCrossEncoder(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
     compressor = CrossEncoderReranker(model=model, top_n=3)
     
@@ -54,7 +54,6 @@ def translate_query(query):
 def format_docs(docs):
     formatted = []
     for doc in docs:
-        # Use safe .get() to prevent errors if metadata is missing
         source = f"Surah {doc.metadata.get('surah', '?')} ({doc.metadata.get('id', '?')})"
         content = f"Text: {doc.metadata.get('english', '')}\nClassic: {doc.metadata.get('classic', '')}\nTafsir: {doc.metadata.get('tafsir', '')}"
         formatted.append(f"Source: {source}\n{content}")
@@ -65,26 +64,30 @@ def get_answer(user_query):
     
     retriever, llm = get_brain_components()
     
-    # Retrieve using the Smart Reranker
-    docs = retriever.invoke(english_query)
-    
-    # Guardrail: If no relevant docs found after reranking
+    # 1. Retrieve & Rerank
+    try:
+        docs = retriever.invoke(english_query)
+    except Exception as e:
+        return {"answer": "Error connecting to Knowledge Base.", "sources": []}
+
+    # 2. THE GUARDRAIL (Crucial Step) 🛡️
+    # If Reranker returns nothing (or very low score), WE STOP HERE.
+    # This prevents the "Wudu Hallucination".
     if not docs:
         return {
-            "answer": "I cannot find a direct reference in the authentic sources matching your query.",
+            "answer": "I searched the Quran and Tafsir al-Jalalayn but could not find a direct reference to this specific query. (Note: I am restricted from using outside sources like Hadith for now).",
             "sources": [],
             "translated_query": english_query
         }
 
-    # Updated System Prompt with "Different Word" Logic
-    system_prompt = """You are Mizan, an Islamic research assistant.
+    # 3. Strict System Prompt
+    system_prompt = """You are Mizan, a strict Islamic research assistant.
     
     Instructions:
-    1. Answer the user's question using the Context provided below (Quran Verses + Tafsir).
-    2. **The "Different Word" Rule:** If the user asks for a specific term and the Quran uses a different term/metaphor, you MUST explain the link.
-       - CORRECT Format: "The Quran uses the term [Quran Word] in Surah [X:Y], which the Tafsir explains refers to [User's Keyword]."
-    3. If the answer is not in the Context at all, say 'I cannot find a direct reference in the authentic sources.'
-    4. Be concise and respectful.
+    1. Answer ONLY using the Context provided below.
+    2. **DO NOT** use outside knowledge (like Bukhari, Muslim, or Ibn Kathir) even if you know it.
+    3. If the Context mentions "idols" or "battle" and the user asked about "Wudu", IGNORE the context and say "I cannot find a relevant verse."
+    4. **The "Different Word" Rule:** If the user asks for a specific term (e.g. "Masturbation") and the Tafsir implies it under a broad term (e.g. "Transgression"), explain the link clearly.
     
     Context:
     {context}
@@ -108,15 +111,3 @@ def get_answer(user_query):
         "sources": docs,
         "translated_query": english_query
     }
-
-if __name__ == "__main__":
-    # Test
-    q = "What does the Quran say about interest?"
-    print(f"Query: {q}")
-    try:
-        result = get_answer(q)
-        print(f"Translated: {result['translated_query']}")
-        print("Answer:", result["answer"])
-        print("Sources:", [d.metadata.get('id', '?') for d in result['sources']])
-    except Exception as e:
-        print(f"Error: {e}")
