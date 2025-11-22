@@ -1,5 +1,5 @@
 import streamlit as st
-import brain
+import graph_brain as brain
 import os
 
 # Page Config
@@ -12,7 +12,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("⚖️ Mizan")
+st.title("⚖️ Mizan (Agentic RAG)")
 st.subheader("Verifiable Islamic Knowledge Assistant")
 st.markdown("---")
 
@@ -37,10 +37,10 @@ for msg in st.session_state.messages:
         if msg.get("sources"):
             with st.expander(f"📚 View {len(msg['sources'])} Authentic Sources"):
                 for doc in msg["sources"]:
-                    st.markdown(f"**Surah {doc.metadata['surah']} ({doc.metadata['id']})**")
-                    st.markdown(f'<div class="arabic-text">{doc.metadata["arabic"]}</div>', unsafe_allow_html=True)
-                    st.markdown(f"_{doc.metadata['english']}_")
-                    if doc.metadata['tafsir'] and doc.metadata['tafsir'] != "nan":
+                    st.markdown(f"**Surah {doc.metadata.get('surah', '?')} ({doc.metadata.get('id', '?')})**")
+                    st.markdown(f'<div class="arabic-text">{doc.metadata.get("arabic", "")}</div>', unsafe_allow_html=True)
+                    st.markdown(f"_{doc.metadata.get('english', '')}_")
+                    if doc.metadata.get('tafsir') and doc.metadata.get('tafsir') != "nan":
                          st.info(f"**Tafsir:** {doc.metadata['tafsir'][:300]}...")
                     st.divider()
 
@@ -51,26 +51,33 @@ if prompt := st.chat_input("Ask about the Quran (e.g., 'What is Zina?')..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Researching..."):
+        with st.spinner("Agent is thinking (Lookup -> Expand -> Retrieve -> Grade -> Generate)..."):
             try:
-                response = brain.get_answer(prompt)
+                response = brain.run_agent(prompt)
+                
+                # Show Dictionary Context if available
+                if response.get("dictionary_context"):
+                    with st.expander("📖 Agent's Understanding (Dictionary Lookup)"):
+                        st.info(response["dictionary_context"])
+                
                 st.markdown(response["answer"])
                 
                 # Only show expander if sources were found
                 if response["sources"]:
                     with st.expander(f"📚 View {len(response['sources'])} Authentic Sources"):
                         for doc in response["sources"]:
-                            st.markdown(f"**Surah {doc.metadata['surah']} ({doc.metadata['id']})**")
-                            st.markdown(f'<div class="arabic-text">{doc.metadata["arabic"]}</div>', unsafe_allow_html=True)
-                            st.markdown(f"_{doc.metadata['english']}_")
-                            if doc.metadata['tafsir'] and doc.metadata['tafsir'] != "nan":
+                            st.markdown(f"**Surah {doc.metadata.get('surah', '?')} ({doc.metadata.get('id', '?')})**")
+                            st.markdown(f'<div class="arabic-text">{doc.metadata.get("arabic", "")}</div>', unsafe_allow_html=True)
+                            st.markdown(f"_{doc.metadata.get('english', '')}_")
+                            if doc.metadata.get('tafsir') and doc.metadata.get('tafsir') != "nan":
                                 st.info(f"**Tafsir:** {doc.metadata['tafsir'][:300]}...")
                             st.divider()
                 
                 st.session_state.messages.append({
                     "role": "assistant", 
                     "content": response["answer"],
-                    "sources": response["sources"]
+                    "sources": response["sources"],
+                    "dictionary_context": response.get("dictionary_context")
                 })
             except Exception as e:
                 st.error(f"Error: {e}")

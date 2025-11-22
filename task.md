@@ -26,3 +26,15 @@
     - [x] Rewrite `brain.py` with Cross-Encoder Reranking <!-- id: 20 -->
     - [x] Verify new logic with `debug_brain.py` <!-- id: 21 -->
     - [x] Overwrite `brain.py` with strict guardrails <!-- id: 22 -->
+- [x] **Task 6: Agentic RAG Upgrade (LangGraph)** <!-- id: 23 -->
+    - [x] Update `requirements.txt` with `langgraph` <!-- id: 24 -->
+    - [x] Create `graph_brain.py` with CRAG architecture <!-- id: 25 -->
+    - [x] Implement RETRIEVE node with Query Expansion <!-- id: 26 -->
+    - [x] Implement GRADE_DOCUMENTS node with LLM Judge <!-- id: 27 -->
+    - [x] Implement REWRITE/LOOP logic <!-- id: 28 -->
+    - [x] Verify with `test_agent.py` <!-- id: 29 -->
+- [x] **Task 7: Mizan 2.0 (Dual-Store Agentic RAG)** <!-- id: 30 -->
+    - [x] Create `ingest_v2.py` (Merge 7 files, 2 Collections) <!-- id: 31 -->
+    - [x] Create `graph_brain.py` (5-Node LangGraph with Dictionary Lookup) <!-- id: 32 -->
+    - [x] Update `app.py` to show Dictionary Context <!-- id: 33 -->
+    - [x] Verify with `test_mizan_2.py` <!-- id: 34 -->
