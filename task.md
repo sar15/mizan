@@ -12,3 +12,9 @@
     - [x] Setup Streamlit app <!-- id: 9 -->
     - [x] Implement chat interface <!-- id: 10 -->
     - [x] Implement citation card <!-- id: 11 -->
+- [x] **Task 4: Pipeline Refinement (Production Build)** <!-- id: 12 -->
+    - [x] Create `ingest_fix.py` (Robust Ingestion) <!-- id: 13 -->
+    - [x] Run `ingest_fix.py` and verify output <!-- id: 14 -->
+    - [x] Create `debug_brain.py` and verify "Spider" retrieval <!-- id: 15 -->
+    - [x] Update `brain.py` with new logic and metadata <!-- id: 16 -->
+    - [x] Create `app_polished.py` (Improved UI) <!-- id: 17 -->

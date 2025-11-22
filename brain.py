@@ -8,8 +8,8 @@ from langchain_core.runnables import RunnablePassthrough
 
 # Initialize Components
 def get_brain_components():
-    # 1. Embeddings
-    embedding_function = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    # 1. Embeddings (Updated to mpnet)
+    embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     
     # 2. Vector Store
     vectorstore = Chroma(
@@ -17,7 +17,8 @@ def get_brain_components():
         embedding_function=embedding_function,
         collection_name="mizan_knowledge_base"
     )
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    # Retrieve Top 4
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
     
     # 3. LLM
     api_key = os.getenv("GROQ_API_KEY")
@@ -34,6 +35,8 @@ def get_brain_components():
 
 def translate_query(query):
     try:
+        # Simple check: if query has non-ascii chars, assume it might need translation
+        # Or just always try to translate to English
         translator = GoogleTranslator(source='auto', target='en')
         translated = translator.translate(query)
         return translated
@@ -42,24 +45,27 @@ def translate_query(query):
         return query
 
 def format_docs(docs):
-    return "\n\n".join(f"Verse: {doc.metadata['surah_name']} ({doc.metadata['surah_num']}:{doc.metadata['verse_num']})\nText: {doc.page_content}\nTafsir: {doc.metadata['tafsir']}" for doc in docs)
+    # Updated to use new metadata keys
+    formatted = []
+    for doc in docs:
+        source = f"Surah {doc.metadata['surah']} ({doc.metadata['id']})"
+        content = f"Text: {doc.metadata['english']}\nClassic: {doc.metadata['classic']}\nTafsir: {doc.metadata['tafsir']}"
+        formatted.append(f"Source: {source}\n{content}")
+    return "\n\n".join(formatted)
 
 def get_answer(user_query):
     # 1. Translate
     english_query = translate_query(user_query)
-    # print(f"Translated Query: {english_query}")
     
     retriever, llm = get_brain_components()
     
     # 2. Retrieve
-    # Note: get_relevant_documents is deprecated in newer langchain, use invoke
     docs = retriever.invoke(english_query)
     
     # 3. Generate
-    system_prompt = """You are Mizan, a strict fact-checking assistant. 
-    Answer the user's question using ONLY the context provided below. 
-    If the answer is not in the context, say 'I cannot find a direct reference in the authentic texts.' 
-    Do not give Fatwas or personal opinions.
+    system_prompt = """You are Mizan. Answer using ONLY the context. 
+    If the answer is missing, say 'I don't know'. 
+    Cite the Surah/Verse for every claim.
     
     Context:
     {context}
@@ -86,12 +92,12 @@ def get_answer(user_query):
 
 if __name__ == "__main__":
     # Test
-    q = "Allah kaun hai?"
+    q = "The parable of the spider"
     print(f"Query: {q}")
     try:
         result = get_answer(q)
         print(f"Translated: {result['translated_query']}")
         print("Answer:", result["answer"])
-        print("Sources:", [f"{d.metadata['surah_name']} {d.metadata['surah_num']}:{d.metadata['verse_num']}" for d in result['sources']])
+        print("Sources:", [d.metadata['id'] for d in result['sources']])
     except Exception as e:
         print(f"Error: {e}")
