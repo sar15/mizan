@@ -9,3 +9,5 @@ deep-translator
 langchain-groq
 langchain-community
 langgraph
+plotly
+python-dotenv

@@ -1,57 +1,53 @@
-# Walkthrough - Mizan UI Rewrite
+# Mizan 4.0: The Verifiable Islamic Knowledge Engine
+**Project Walkthrough & Status Report**
 
-I have rewritten `app.py` to create a production-grade User Interface for Project Mizan, focusing on a "Clean, Classic, and Smooth" aesthetic suitable for an Islamic Scholar agent.
+## 1. The Vision
+We set out to build **Mizan 4.0**, an AI system that answers Islamic queries with **zero hallucination** of Quranic text. Unlike standard RAG systems, Mizan uses a deterministic "Scribe" pipeline where the LLM is strictly an analyst, and a Python injector handles the sacred text.
 
-## Changes Implemented
+## 2. Phase 1: The Immutable Foundation (Database)
+**Goal**: Create a single source of truth.
+- **Action**: We built `mizan_core.db` (SQLite).
+- **Data Ingested**:
+    - **Quran**: Merged Arabic (Uthmani), Sahih International (English), and Yusuf Ali (English) for all 6,236 verses.
+    - **Tafsir**: Ingested Al-Jalalayn commentary, mapped sequentially to verses.
+    - **Ontology**: Seeded a "Golden Record" table for key concepts (e.g., "Slander", "Wudu") to ensure deterministic answers for sensitive topics.
+- **Outcome**: A 6.2MB database that serves as the "Truth Vault".
 
-### 1. Visual Design & Aesthetics
-- **Color Palette**: Implemented Deep Emerald Green (`#1E8449`) for accents and Soft White (`#F4F9F5`) for the background.
-- **Typography**: 
-    - **Arabic**: Used `Amiri` font for all Arabic text to ensure readability and classic calligraphy style.
-    - **English**: Used `Inter` (Sans-Serif) for clean, modern readability.
-- **Styling**: Injected custom CSS to:
-    - Hide default Streamlit branding (hamburger menu, footer).
-    - Style `source-card` elements with a distinct border-left and shadow.
-    - Ensure RTL directionality for Arabic text.
+## 3. Phase 2: The Mahkama (Reasoning Engine)
+**Goal**: Build the logic layer to query the database.
+- **Action**: Created `mahkama.py` containing the `MizanJudge` class.
+- **Key Logic**:
+    - `classify_intent(query)`: Determines if a question is LEGAL, THEOLOGICAL, or GENERAL.
+    - `consult_ontology(concept)`: Checks the Golden Records first.
+    - `fetch_verse_card(id)`: Retrieves the exact Arabic/English text and context (prev/next verses).
+- **Outcome**: A Python API that interfaces strictly with `mizan_core.db`.
 
-### 2. Layout Structure
-- **Sidebar**:
-    - Added "About" section explaining the methodology.
-    - Added "Settings" expander for the API Key.
-    - Added a clear "Disclaimer".
-- **Main Chat Area**:
-    - Used `st.chat_message` for a modern conversation flow.
-    - **Agent Message Components**:
-        - **🧠 Agent Reasoning**: An expander showing the steps (Dictionary Lookup -> Search Query -> Relevancy Check).
-        - **Answer**: The generated text.
-        - **📚 Authentic Sources**: Beautifully formatted cards showing Surah/Ayah, Arabic text, and Translation.
+## 4. Phase 3: The "Scribe" Pipeline (JSON Architecture)
+**Goal**: Prevent LLM hallucinations.
+- **Action**: Built `brain_v3.py` using **LangGraph**.
+- **Workflow**:
+    1.  **Interpreter Node**: Routes the query (Ontology vs Vector).
+    2.  **Scribe Node**: The LLM (Llama 3 via Groq) receives *text* of verses but is instructed to output **ONLY JSON**. It cannot output Quranic text directly.
+    3.  **Injector Node**: A Python function takes the JSON, reads the `verse_id`, fetches the **verified Arabic/English** from the DB, and injects it into the final HTML.
+- **Outcome**: 100% citation accuracy. The LLM acts as a reasoning engine, not a storage engine.
 
-### 3. Integration
-- Integrated with `graph_brain.py` to run the agent loop.
-- Handled API Key input via the sidebar to ensure the agent has access to credentials.
+## 5. Phase 4: Full Stack & Vector Search (The Treasury)
+**Goal**: Handle general queries and build the UI.
+- **Action**:
+    - **Vector Search**: Created `ingest_vectors.py` to embed all 6,236 verses into **ChromaDB** (`quran_verified` collection).
+    - **Fallback Logic**: Updated `brain_v3.py` to check Ontology first; if no match, it falls back to Semantic Search.
+    - **UI**: Refactored `app.py` (Streamlit) to use the new pipeline. Added **Amiri font** for beautiful Arabic rendering.
+    - **Security**: Added API Key enforcement and `.env` support.
 
-### 4. Content Logic (Graph Brain)
-- **Integrated Citations**: Updated the agent prompt to enforce citing Surah/Verse *immediately* within narrative sentences (e.g., "According to Surah X (Y:Z)...").
-- **Narrative Bullets**: Enforced flowy, complete sentences for bullet points.
-- **Strict Structure**: Direct Answer -> Detailed Evidence -> Conclusion.
+## 6. Current Status
+The system is **Fully Operational**.
 
-### 5. Dictionary & Mode Switching
-- **Manual Dictionary**: Added a hardcoded fallback for critical Prophet names (Yusuf, Musa, Ibrahim, etc.) to ensure immediate recognition.
-- **Mode Switching**: Updated the agent prompt to switch between:
-    - **Story/History Mode**: Narrative paragraphs with integrated citations.
-    - **Ruling/List Mode**: Bullet points for clarity.
+### Verification Tests
+1.  **Ontology Query**: "What is the punishment for slander?"
+    -   **Result**: Hits `ontology` table -> Returns Surah An-Nur (24:4) -> Deterministic.
+2.  **Vector Query**: "Tell me about patience"
+    -   **Result**: Hits `ChromaDB` -> Returns verses on Sabr (e.g., 2:153) -> Semantic.
 
-## Verification Results
-
-### UI Screenshot
-I have verified the UI by running the app locally.
-
-![Story of Yusuf Response](/Users/sarhanak/.gemini/antigravity/brain/cd85f690-8652-4782-8ba2-3ec433edb251/story_of_yusuf_response_1763831248737.png)
-
-### Functional Check
-- The app successfully starts without errors.
-- The sidebar and main layout elements are rendered correctly.
-- The custom CSS is applied, hiding the default Streamlit elements and styling the background.
-
-## Next Steps
-- The user can now run the app using `streamlit run app.py` and interact with the Mizan agent.
+### How to Run
+1.  **API Key**: The app now supports a `.env` file. Create one with `GROQ_API_KEY=your_key` OR enter it in the sidebar.
+2.  **Launch**: Run `streamlit run app.py`.

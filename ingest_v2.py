@@ -100,6 +100,16 @@ def ingest_v2():
     merged_df['tafsir'] = df_tafsir['Tafseer'] if 'Tafseer' in df_tafsir.columns else ""
     
     merged_df.fillna("", inplace=True)
+    
+    # --- CONTEXT WINDOW (NEIGHBORHOOD RULE) ---
+    print("   🧠 Generating Neighborhood Context (Prev/Next Verses)...")
+    # Ensure strict order
+    merged_df.sort_values(by=['surah_no', 'ayah_no_surah'], inplace=True)
+    
+    # Shift to get context
+    merged_df['prev_text'] = merged_df['ayah_en'].shift(1).fillna('')
+    merged_df['next_text'] = merged_df['ayah_en'].shift(-1).fillna('')
+    
     print(f"   ✅ Merged Data Shape: {merged_df.shape}")
 
     # --- PHASE 4: DOCUMENT CREATION ---
@@ -122,7 +132,9 @@ def ingest_v2():
             "arabic_text": str(row['ayah_ar']),
             "source_type": "Quran",
             "madhhab": "General",
-            "id": f"{row['surah_no']}:{row['ayah_no_surah']}"
+            "id": f"{row['surah_no']}:{row['ayah_no_surah']}",
+            "prev_verse": str(row['prev_text']),
+            "next_verse": str(row['next_text'])
         }
         
         documents.append(Document(page_content=content, metadata=metadata, id=metadata["id"]))

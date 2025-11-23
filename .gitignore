@@ -44,7 +44,7 @@ mizan_chroma_db/
 Thumbs.db
 
 # Streamlit
-.streamlit/
+
 
 # Logs
 *.log

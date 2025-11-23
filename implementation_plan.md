@@ -1,35 +1,45 @@
-# Mizan 2.0: The Agentic Scholar - Implementation Plan
+# Mizan 4.0 Implementation Plan (Phase 4)
 
-## Goal
-Build a strict, source-based Islamic Research Assistant using LangGraph.
+## Goal Description
+Complete the system by adding Vector Search (ChromaDB) for general queries and integrating the new "Scribe" pipeline into the Streamlit frontend (`app.py`).
 
-## Architecture: The "Think-Loop"
+## User Review Required
+> [!IMPORTANT]
+> **Vector Search Fallback**: The system will now prioritize the Ontology (Golden Truths). If no concept is found, it will fallback to Semantic Search (ChromaDB) to retrieve relevant verses.
+> **Frontend Overhaul**: `app.py` will be completely refactored to render the pre-generated HTML from `brain_v3.py`, ensuring consistent styling and verified text injection.
 
-### 1. Data Layer (Dual Vector Stores)
-- **`mizan_knowledge_base`**: The Golden Record.
-    - **Content**: Concatenation of Modern English, Yusuf Ali, and Tafsir al-Jalalayn.
-    - **Metadata**: `surah_name`, `ayah_number`, `arabic_text`, `source_type="Quran"`, `madhhab="General"`.
-- **`mizan_dictionary`**: Semantic Lexicon.
-    - **Content**: Definitions of Islamic terms (e.g., "Gheebah", "Qazf").
-    - **Purpose**: Used by the Dictionary Node to understand user intent before retrieval.
+## Proposed Changes
 
-### 2. The Brain (LangGraph)
-- **Node 1: Intent Classifier**: Determines if query is Fatwa (Block), Explanation, or Comparison.
-- **Node 2: Dictionary Lookup**: Semantic Router to find synonyms/definitions.
-- **Node 3: Retrieval**: Searches `mizan_knowledge_base` with expanded query.
-- **Node 4: Relevance Grader**: LLM scores results (0-2).
-    - **0 (Trash)**: Loop back to Rewrite.
-    - **1 (Context)**: Keep but warn.
-    - **2 (Direct)**: Proceed to Generate.
-- **Node 5: Generator**: Strict citation-based answer generation.
+### Vector Search
+#### [NEW] [ingest_vectors.py](file:///Users/sarhanak/Documents/mizan/ingest_vectors.py)
+- **Source**: `mizan_core.db` (quran_text table).
+- **Target**: ChromaDB collection `quran_verified`.
+- **Content**: English translation (Sahih) for embedding.
+- **Metadata**: `verse_id`, `surah_number`, `ayah_number`.
 
-### 3. Safety & Integrity
-- **Circuit Breaker**: Max 3 loops to prevent infinite searching.
-- **Integrity Checker**: Verifies final quotes against Uthmani script (future scope).
+### Backend Updates
+#### [MODIFY] [mahkama.py](file:///Users/sarhanak/Documents/mizan/mahkama.py)
+- **Add Method**: `search_vector_db(query)`
+    - Queries `quran_verified` collection.
+    - Returns list of `verse_id`s.
 
-## Phase 1: Data Surgery (Current)
-- **Script**: `ingest_v2.py`
-- **Strictness**: 
-    - Audit row counts (Quran vs Tafsir).
-    - Abort on mismatch.
-    - Unified Schema creation.
+#### [MODIFY] [brain_v3.py](file:///Users/sarhanak/Documents/mizan/brain_v3.py)
+- **Update Node**: `interpreter_node`
+    - Logic: If `consult_ontology` returns empty, call `search_vector_db`.
+
+### Frontend Integration
+#### [MODIFY] [app.py](file:///Users/sarhanak/Documents/mizan/app.py)
+- **Integration**: Use `brain_v3.build_scribe_graph`.
+- **Rendering**: Display `final_display_html` using `st.markdown(..., unsafe_allow_html=True)`.
+- **Styling**: Ensure Amiri font is loaded for Arabic text.
+
+### Verification
+#### [NEW] [verify_full_stack.py](file:///Users/sarhanak/Documents/mizan/verify_full_stack.py)
+- **Test A**: "Slander" -> Ontology path.
+- **Test B**: "Patience" -> Vector path.
+- **Success Criteria**: Both return valid HTML output with verified text.
+
+## Verification Plan
+1. **Run `ingest_vectors.py`**: Verify ChromaDB creation.
+2. **Run `verify_full_stack.py`**: Verify both search paths work.
+3. **Manual Check**: Run `streamlit run app.py` (if possible/requested) to see UI.

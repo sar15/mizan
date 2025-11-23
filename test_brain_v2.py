@@ -1,34 +1,30 @@
 import graph_brain
-import os
+import sys
 
 def test_brain_v2():
-    print("🧠 Testing Mizan 2.0 Brain (LangGraph)...")
+    print("🧪 Testing Mizan 2.5 Brain Logic...")
     
-    # Test 1: Dictionary Lookup (Wudu -> Ablution)
-    q1 = "How to perform Wudu?"
-    print(f"\n❓ Query 1: {q1}")
+    # Test 1: Strict Query (Fiqh)
+    q1 = "What is the punishment for theft?"
+    print(f"\n🔹 Query 1: {q1}")
     res1 = graph_brain.run_agent(q1)
-    print(f"   Expanded Query: {res1.get('expanded_query')}")
-    print(f"   Answer: {res1['answer'][:200]}...")
+    print(f"   Answer: {res1['answer'][:100]}...")
+    print(f"   Sources: {len(res1['sources'])}")
     
-    # Test 2: Circuit Breaker (Nonsense query)
-    q2 = "What is the ruling on flying cars in Mars?"
-    print(f"\n❓ Query 2: {q2}")
+    # Test 2: General Query (Story)
+    q2 = "Tell me the story of Yusuf"
+    print(f"\n🔹 Query 2: {q2}")
     res2 = graph_brain.run_agent(q2)
-    print(f"   Answer: {res2['answer']}")
+    print(f"   Answer: {res2['answer'][:100]}...")
     
-    # Test 3: Direct Hit (Spider)
-    q3 = "The parable of the spider"
-    print(f"\n❓ Query 3: {q3}")
+    # Test 3: Fiqh Disclaimer Check
+    q3 = "How to perform Wudu?"
+    print(f"\n🔹 Query 3: {q3}")
     res3 = graph_brain.run_agent(q3)
-    print(f"   Answer: {res3['answer'][:200]}...")
-    if res3['sources']:
-        print(f"   ✅ Retrieved {len(res3['sources'])} sources.")
+    if "Specific legal details (Fiqh) may vary" in res3['answer']:
+        print("   ✅ Fiqh Disclaimer Detected.")
     else:
-        print("   ❌ No sources retrieved.")
+        print("   ❌ Fiqh Disclaimer Missing.")
 
 if __name__ == "__main__":
-    if not os.getenv("GROQ_API_KEY"):
-        print("⚠️ GROQ_API_KEY not set. Please export it.")
-    else:
-        test_brain_v2()
+    test_brain_v2()
