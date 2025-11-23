@@ -1,0 +1,7 @@
+langgraph
+langchain-groq
+chromadb
+pandas
+langchain-huggingface
+python-dotenv
+streamlit

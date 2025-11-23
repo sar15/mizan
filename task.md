@@ -1,0 +1,21 @@
+# Tasks
+
+- [x] Data Ingestion (`ingest.py`) <!-- id: 0 -->
+    - [x] Create `requirements.txt` <!-- id: 1 -->
+    - [x] Implement `ingest.py` with strict schema handling <!-- id: 2 -->
+    - [x] Verify `ingest.py` execution <!-- id: 3 -->
+- [x] Application Logic (`mizan_core.py`) <!-- id: 4 -->
+    - [x] Implement `expand_query` node <!-- id: 5 -->
+    - [x] Implement `retrieve` node <!-- id: 6 -->
+    - [x] Implement `grade_documents` node <!-- id: 7 -->
+    - [x] Implement `generate` node <!-- id: 8 -->
+    - [x] Implement `verify_citations` node <!-- id: 9 -->
+    - [x] Build StateGraph <!-- id: 10 -->
+- [x] Execution (`run_mizan.py`) <!-- id: 11 -->
+    - [x] Create runner script <!-- id: 12 -->
+    - [x] Test full pipeline <!-- id: 13 -->
+- [x] Frontend (`app.py`) <!-- id: 14 -->
+    - [x] Create `app.py` with Streamlit UI <!-- id: 15 -->
+    - [x] Implement "Glass Box" sidebar logic <!-- id: 16 -->
+    - [x] Integrate `mizan_core` streaming <!-- id: 17 -->
+    - [x] Verify UI functionality <!-- id: 18 -->
