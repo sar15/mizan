@@ -1,0 +1,62 @@
+[
+  {
+    "text": "What is the ruling on missing prayer?",
+    "type": "question",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 1,
+    "raw_marker": "Q:"
+  },
+  {
+    "text": "It is a major sin. The Prophet (SAW) said...",
+    "type": "answer",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 1,
+    "raw_marker": "A:"
+  },
+  {
+    "text": "(cid:127) Prayer is the pillar of religion.",
+    "type": "rule/evidence",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 1
+  },
+  {
+    "text": "Fajr",
+    "type": "point",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 1,
+    "raw_marker": "1."
+  },
+  {
+    "text": "Dhuhr",
+    "type": "point",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 1,
+    "raw_marker": "2."
+  },
+  {
+    "text": "SECTION: WUDU",
+    "type": "rule/evidence",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 2
+  },
+  {
+    "text": "Wudu is a prerequisite for Salah.",
+    "type": "rule/evidence",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 2
+  },
+  {
+    "text": "Does sleep break Wudu?",
+    "type": "question",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 2,
+    "raw_marker": "Q:"
+  },
+  {
+    "text": "Yes, deep sleep invalidates Wudu.",
+    "type": "answer",
+    "parent_header": "CHAPTER 1: SALAH",
+    "page_num": 2,
+    "raw_marker": "A:"
+  }
+]

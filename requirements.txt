@@ -11,3 +11,5 @@ langchain-community
 langgraph
 plotly
 python-dotenv
+pdfplumber
+networkx

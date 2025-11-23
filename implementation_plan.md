@@ -1,45 +1,40 @@
-# Mizan 4.0 Implementation Plan (Phase 4)
+# Mizan Prime Implementation Plan (Phase 4 & 5)
 
 ## Goal Description
-Complete the system by adding Vector Search (ChromaDB) for general queries and integrating the new "Scribe" pipeline into the Streamlit frontend (`app.py`).
+Integrate the Mizan Prime backend (`pipeline.py`) into the Streamlit frontend (`app.py`), implement "Silent Auth" for seamless access, and add a "Brain Visualization" feature.
 
 ## User Review Required
 > [!IMPORTANT]
-> **Vector Search Fallback**: The system will now prioritize the Ontology (Golden Truths). If no concept is found, it will fallback to Semantic Search (ChromaDB) to retrieve relevant verses.
-> **Frontend Overhaul**: `app.py` will be completely refactored to render the pre-generated HTML from `brain_v3.py`, ensuring consistent styling and verified text injection.
+> **Silent Auth**: The system will prioritize `st.secrets` for the API key. Users must create `.streamlit/secrets.toml` for this to work seamlessly.
+> **Iron Dome UI**: The UI will explicitly show the pipeline's decision (SAFE vs HALLUCINATION) to build trust.
 
 ## Proposed Changes
 
-### Vector Search
-#### [NEW] [ingest_vectors.py](file:///Users/sarhanak/Documents/mizan/ingest_vectors.py)
-- **Source**: `mizan_core.db` (quran_text table).
-- **Target**: ChromaDB collection `quran_verified`.
-- **Content**: English translation (Sahih) for embedding.
-- **Metadata**: `verse_id`, `surah_number`, `ayah_number`.
+### Phase 4: Silent Auth
+#### [NEW] [.streamlit/secrets.toml](file:///Users/sarhanak/Documents/mizan/.streamlit/secrets.toml)
+- Template for storing `GROQ_API_KEY`.
 
-### Backend Updates
-#### [MODIFY] [mahkama.py](file:///Users/sarhanak/Documents/mizan/mahkama.py)
-- **Add Method**: `search_vector_db(query)`
-    - Queries `quran_verified` collection.
-    - Returns list of `verse_id`s.
+#### [MODIFY] [pipeline.py](file:///Users/sarhanak/Documents/mizan/pipeline.py)
+- Update `draft_answer_node` to fetch API key from `st.secrets` first, then `os.getenv`.
 
-#### [MODIFY] [brain_v3.py](file:///Users/sarhanak/Documents/mizan/brain_v3.py)
-- **Update Node**: `interpreter_node`
-    - Logic: If `consult_ontology` returns empty, call `search_vector_db`.
-
-### Frontend Integration
+### Phase 5: UI Integration
 #### [MODIFY] [app.py](file:///Users/sarhanak/Documents/mizan/app.py)
-- **Integration**: Use `brain_v3.build_scribe_graph`.
-- **Rendering**: Display `final_display_html` using `st.markdown(..., unsafe_allow_html=True)`.
-- **Styling**: Ensure Amiri font is loaded for Arabic text.
-
-### Verification
-#### [NEW] [verify_full_stack.py](file:///Users/sarhanak/Documents/mizan/verify_full_stack.py)
-- **Test A**: "Slander" -> Ontology path.
-- **Test B**: "Patience" -> Vector path.
-- **Success Criteria**: Both return valid HTML output with verified text.
+- **Import**: `from pipeline import build_prime_pipeline`.
+- **Logic**:
+    - Remove old `brain_v3` logic.
+    - Initialize `prime_pipeline`.
+    - Run pipeline on user input.
+- **Display**:
+    - `st.expander("🛡️ Iron Dome Status")`:
+        - Green Badge if `grade == "SAFE"`.
+        - Red Badge if `grade == "HALLUCINATION"`.
+    - Render `final_output` markdown.
+- **Sidebar**:
+    - "View Knowledge Graph" button.
+    - Visualize `theological_units.json` using `graphviz`.
 
 ## Verification Plan
-1. **Run `ingest_vectors.py`**: Verify ChromaDB creation.
-2. **Run `verify_full_stack.py`**: Verify both search paths work.
-3. **Manual Check**: Run `streamlit run app.py` (if possible/requested) to see UI.
+1.  **Auth**: Run app without setting env var (if secrets exist) or with env var. Ensure no prompt.
+2.  **UI**: Test valid query ("Missing prayer") -> Check Green Badge.
+3.  **UI**: Test invalid query ("Bitcoin") -> Check Red Badge.
+4.  **Graph**: Click sidebar button -> Verify graph rendering.

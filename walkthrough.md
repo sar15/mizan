@@ -1,53 +1,55 @@
-# Mizan 4.0: The Verifiable Islamic Knowledge Engine
-**Project Walkthrough & Status Report**
+# Mizan Prime: The Scholar's Mind - Implementation Walkthrough
 
-## 1. The Vision
-We set out to build **Mizan 4.0**, an AI system that answers Islamic queries with **zero hallucination** of Quranic text. Unlike standard RAG systems, Mizan uses a deterministic "Scribe" pipeline where the LLM is strictly an analyst, and a Python injector handles the sacred text.
+## Overview
+We have successfully implemented **Mizan Prime**, a Zero-Trust religious research engine. It uses **Layout-Aware Parsing** to preserve theological context, **Graph RAG** for structured retrieval, and an **Iron Dome** pipeline to censor hallucinations.
 
-## 2. Phase 1: The Immutable Foundation (Database)
-**Goal**: Create a single source of truth.
-- **Action**: We built `mizan_core.db` (SQLite).
-- **Data Ingested**:
-    - **Quran**: Merged Arabic (Uthmani), Sahih International (English), and Yusuf Ali (English) for all 6,236 verses.
-    - **Tafsir**: Ingested Al-Jalalayn commentary, mapped sequentially to verses.
-    - **Ontology**: Seeded a "Golden Record" table for key concepts (e.g., "Slander", "Wudu") to ensure deterministic answers for sensitive topics.
-- **Outcome**: A 6.2MB database that serves as the "Truth Vault".
+## 1. Phase 1: DeepDoc Ingestion (Layout-Aware Parsing)
+**Goal**: Extract atomic units while preserving hierarchy (Topic -> Rule -> Exception).
+- **Action**: Created `ingest_theology.py` with a custom `TheologicalParser`.
+- **Logic**:
+    - **Headers**: Identified by regex (e.g., "CHAPTER 1: SALAH").
+    - **Q&A**: Extracted "Q:" and "A:" blocks as distinct units.
+    - **Output**: `theological_units.json` containing structured data with `parent_header` metadata.
+- **Verification**: Generated a dummy PDF (`dummy_theology.pdf`) and successfully parsed 9 units.
 
-## 3. Phase 2: The Mahkama (Reasoning Engine)
-**Goal**: Build the logic layer to query the database.
-- **Action**: Created `mahkama.py` containing the `MizanJudge` class.
-- **Key Logic**:
-    - `classify_intent(query)`: Determines if a question is LEGAL, THEOLOGICAL, or GENERAL.
-    - `consult_ontology(concept)`: Checks the Golden Records first.
-    - `fetch_verse_card(id)`: Retrieves the exact Arabic/English text and context (prev/next verses).
-- **Outcome**: A Python API that interfaces strictly with `mizan_core.db`.
+## 2. Phase 2: The Theological Graph (Graph RAG)
+**Goal**: Link concepts deterministically.
+- **Action**: Created `build_graph.py` using `networkx`.
+- **Structure**:
+    - **Nodes**: Topics (e.g., "SALAH") and Units (e.g., "Ruling on missing prayer").
+    - **Edges**: `HAS_UNIT` (Hierarchy) and `NEXT_UNIT` (Sequence).
+- **Verification**: Built a graph with 10 nodes and 17 edges. Successfully retrieved context for "CHAPTER 1: SALAH".
 
-## 4. Phase 3: The "Scribe" Pipeline (JSON Architecture)
-**Goal**: Prevent LLM hallucinations.
-- **Action**: Built `brain_v3.py` using **LangGraph**.
+## 3. Phase 3: The "Iron Dome" Pipeline (Self-RAG)
+**Goal**: Prevent hallucinations using a faithfulness check.
+- **Action**: Created `pipeline.py` using `langgraph`.
 - **Workflow**:
-    1.  **Interpreter Node**: Routes the query (Ontology vs Vector).
-    2.  **Scribe Node**: The LLM (Llama 3 via Groq) receives *text* of verses but is instructed to output **ONLY JSON**. It cannot output Quranic text directly.
-    3.  **Injector Node**: A Python function takes the JSON, reads the `verse_id`, fetches the **verified Arabic/English** from the DB, and injects it into the final HTML.
-- **Outcome**: 100% citation accuracy. The LLM acts as a reasoning engine, not a storage engine.
+    1.  **Retrieve**: Hybrid Search (Vector + Graph Traversal).
+    2.  **Draft**: LLM generates an answer using *only* retrieved context.
+    3.  **Grade**: The "Iron Dome" checks if the answer is grounded in the docs.
+- **Verification Results**:
+    - **Valid Query**: "What is the ruling on missing prayer?" -> **SAFE** (Answered correctly).
+    - **Invalid Query**: "Is Bitcoin halal?" -> **HALLUCINATION** (Intercepted: "I cannot find this in the verified database.").
 
-## 5. Phase 4: Full Stack & Vector Search (The Treasury)
-**Goal**: Handle general queries and build the UI.
+## 4. Phase 4 & 5: UI & Silent Auth
+**Goal**: Seamless, secure user experience.
 - **Action**:
-    - **Vector Search**: Created `ingest_vectors.py` to embed all 6,236 verses into **ChromaDB** (`quran_verified` collection).
-    - **Fallback Logic**: Updated `brain_v3.py` to check Ontology first; if no match, it falls back to Semantic Search.
-    - **UI**: Refactored `app.py` (Streamlit) to use the new pipeline. Added **Amiri font** for beautiful Arabic rendering.
-    - **Security**: Added API Key enforcement and `.env` support.
+    - **Silent Auth**: Implemented via `.streamlit/secrets.toml` and updated `pipeline.py` to auto-load keys.
+    - **Iron Dome UI**: Added visual badges (Green/Red) to `app.py` to show verification status.
+    - **Brain Visualization**: Added a sidebar button to render the Knowledge Graph using `matplotlib`.
 
-## 6. Current Status
-The system is **Fully Operational**.
+## Files Created
+- `ingest_theology.py`: Layout-aware PDF parser.
+- `build_graph.py`: Graph construction logic.
+- `pipeline.py`: LangGraph workflow with Iron Dome grader.
+- `app.py`: Streamlit interface with Iron Dome UI.
+- `.streamlit/secrets.toml`: Auth configuration.
+- `theological_units.json`: Extracted knowledge base.
 
-### Verification Tests
-1.  **Ontology Query**: "What is the punishment for slander?"
-    -   **Result**: Hits `ontology` table -> Returns Surah An-Nur (24:4) -> Deterministic.
-2.  **Vector Query**: "Tell me about patience"
-    -   **Result**: Hits `ChromaDB` -> Returns verses on Sabr (e.g., 2:153) -> Semantic.
-
-### How to Run
-1.  **API Key**: The app now supports a `.env` file. Create one with `GROQ_API_KEY=your_key` OR enter it in the sidebar.
-2.  **Launch**: Run `streamlit run app.py`.
+## Usage
+1.  **Set Key**: Open `.streamlit/secrets.toml` and paste your `GROQ_API_KEY`.
+2.  **Run**: `streamlit run app.py`.
+3.  **Test**:
+    -   Ask "Ruling on missing prayer" -> See Green Badge.
+    -   Ask "Bitcoin" -> See Red Badge.
+    -   Click "View Knowledge Graph" in sidebar.
