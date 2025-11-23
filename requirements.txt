@@ -5,3 +5,4 @@ pandas
 langchain-huggingface
 python-dotenv
 streamlit
+langchain-openai

@@ -2,20 +2,26 @@ import sys
 from mizan_core import app
 
 def main():
-    question = "What is the punishment for theft?"
+    question = "What does Islam say about intrest?" # Typo intentional
     if len(sys.argv) > 1:
         question = sys.argv[1]
         
-    print(f"Running Mizan with query: '{question}'")
+    print(f"Running Mizan 3.0 with query: '{question}'")
     
-    initial_state = {"question": question, "retry_count": 0}
+    initial_state = {"original_question": question, "retry_count": 0}
     
     # Run the graph
-    result = app.invoke(initial_state)
-    
-    print("\n\n=== FINAL OUTPUT ===")
-    print(result.get("generation"))
-    print("====================")
+    try:
+        result = app.invoke(initial_state)
+        
+        print("\n\n=== FINAL OUTPUT ===")
+        print(f"Optimized Query: {result.get('search_query')}")
+        print(f"Citation Status: {result.get('citation_status')}")
+        print("--- Answer ---")
+        print(result.get("generation"))
+        print("====================")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()

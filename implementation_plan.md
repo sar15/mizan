@@ -1,32 +1,30 @@
-# Implementation Plan - Mizan Frontend
+# Implementation Plan - Mizan "Hybrid Brain 3.2" (Cerebras)
 
 ## Goal
-Create a "Glass Box" Streamlit interface for Mizan that visualizes the RAG reasoning process.
+Upgrade Mizan to use Cerebras (`llama-3.3-70b`) for the "Scholar" node to bypass Groq rate limits, while keeping Groq (`llama-3.1-8b-instant`) for "Intern" tasks.
 
 ## Proposed Changes
 
-### Frontend
-#### [NEW] [app.py](file:///Users/sarhanak/Documents/mizan/app.py)
-- **Libraries**: `streamlit`, `mizan_core`
-- **UI Structure**:
-    - **Main Area**: Chat interface.
-    - **Sidebar**: "Brain Activity" with 3 expanders.
-- **Logic**:
-    - Initialize `st.session_state.messages`.
-    - Input loop:
-        - Display user message.
-        - Call `mizan_core.app.stream(inputs)`.
-        - Iterate over stream chunks:
-            - `expand_query`: Update "Query Analysis" expander.
-            - `retrieve`: Update "Evidence Retrieved" expander with docs.
-            - `verify_citations`: Update "Verification Status" expander.
-            - `generate`: Display final answer.
-- **Styling**: Standard Streamlit with "Glass Box" metaphor (transparency/visibility of logic).
+### Configuration
+#### [MODIFY] [.env](file:///Users/sarhanak/Documents/mizan/.env)
+- Add `CEREBRAS_API_KEY`.
 
-### Dependencies
-- Add `streamlit` to `requirements.txt`.
+#### [MODIFY] [requirements.txt](file:///Users/sarhanak/Documents/mizan/requirements.txt)
+- Add `langchain-openai`.
+
+### Core Logic
+#### [MODIFY] [mizan_core.py](file:///Users/sarhanak/Documents/mizan/mizan_core.py)
+- **Imports**: Add `from langchain_openai import ChatOpenAI`.
+- **Model Initialization**:
+    - `llm_intern`: `ChatGroq` (llama-3.1-8b-instant)
+    - `llm_scholar`: `ChatOpenAI` (Cerebras endpoint, llama-3.3-70b)
+- **Node Assignments**:
+    - `smart_query_expansion` -> `llm_intern`
+    - `grade_documents` -> `llm_intern`
+    - `verify_citations` -> `llm_intern`
+    - `generate_answer` -> `llm_scholar` (Cerebras)
 
 ## Verification Plan
-- Run `streamlit run app.py`.
-- Test with query "What is the punishment for theft?".
-- Verify sidebar updates dynamically.
+- Run `run_mizan.py`.
+- Verify successful execution and high-quality output.
+- Check logs to confirm Cerebras usage (implied by successful run if keys are set correctly).

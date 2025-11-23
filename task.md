@@ -19,3 +19,23 @@
     - [x] Implement "Glass Box" sidebar logic <!-- id: 16 -->
     - [x] Integrate `mizan_core` streaming <!-- id: 17 -->
     - [x] Verify UI functionality <!-- id: 18 -->
+- [x] Mizan 3.0 Upgrade (`mizan_core.py`) <!-- id: 19 -->
+    - [x] Update `GraphState` definition <!-- id: 20 -->
+    - [x] Implement `smart_query_expansion` with LLM <!-- id: 21 -->
+    - [x] Update `generate_answer` for "Eloquent Scholar" persona <!-- id: 22 -->
+    - [x] Update `verify_citations` for strict auditing <!-- id: 23 -->
+    - [x] Refactor StateGraph with new nodes and flow <!-- id: 24 -->
+    - [x] Verify with `run_mizan.py` <!-- id: 25 -->
+- [x] Frontend Fix (`app.py`) <!-- id: 26 -->
+    - [x] Fix node listening logic <!-- id: 27 -->
+    - [x] Implement state persistence for draft answer <!-- id: 28 -->
+- [x] Hybrid Brain Optimization (`mizan_core.py`) <!-- id: 29 -->
+    - [x] Implement dual model initialization (`llm_fast`, `llm_scholar`) <!-- id: 30 -->
+    - [x] Assign `llm_fast` to `smart_query_expansion`, `grade_documents`, `verify_citations` <!-- id: 31 -->
+    - [x] Assign `llm_scholar` to `generate_answer` <!-- id: 32 -->
+    - [x] Verify optimization with `run_mizan.py` <!-- id: 33 -->
+- [x] Hybrid Brain 3.2 (Cerebras Integration) <!-- id: 34 -->
+    - [x] Update `.env` with `CEREBRAS_API_KEY` <!-- id: 35 -->
+    - [x] Update `requirements.txt` with `langchain-openai` <!-- id: 36 -->
+    - [x] Rewrite `mizan_core.py` to use Cerebras for Scholar node <!-- id: 37 -->
+    - [x] Verify with `run_mizan.py` <!-- id: 38 -->
