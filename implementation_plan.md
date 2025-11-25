@@ -1,30 +1,33 @@
-# Implementation Plan - Mizan "Hybrid Brain 3.2" (Cerebras)
+# Implementation Plan - Mizan 4.1 "The Safety Net"
 
 ## Goal
-Upgrade Mizan to use Cerebras (`llama-3.3-70b`) for the "Scholar" node to bypass Groq rate limits, while keeping Groq (`llama-3.1-8b-instant`) for "Intern" tasks.
+Activate the Enriched Database and implement a Corrective RAG (CRAG) loop to self-correct verification failures.
 
 ## Proposed Changes
 
 ### Configuration
-#### [MODIFY] [.env](file:///Users/sarhanak/Documents/mizan/.env)
-- Add `CEREBRAS_API_KEY`.
-
-#### [MODIFY] [requirements.txt](file:///Users/sarhanak/Documents/mizan/requirements.txt)
-- Add `langchain-openai`.
+#### [MODIFY] [mizan_core.py](file:///Users/sarhanak/Documents/mizan/mizan_core.py)
+- Change `CHROMA_DB_DIR` to `"./chroma_db_enriched"`.
 
 ### Core Logic
 #### [MODIFY] [mizan_core.py](file:///Users/sarhanak/Documents/mizan/mizan_core.py)
-- **Imports**: Add `from langchain_openai import ChatOpenAI`.
-- **Model Initialization**:
-    - `llm_intern`: `ChatGroq` (llama-3.1-8b-instant)
-    - `llm_scholar`: `ChatOpenAI` (Cerebras endpoint, llama-3.3-70b)
-- **Node Assignments**:
-    - `smart_query_expansion` -> `llm_intern`
-    - `grade_documents` -> `llm_intern`
-    - `verify_citations` -> `llm_intern`
-    - `generate_answer` -> `llm_scholar` (Cerebras)
+- **State Definition**:
+    - Add `feedback: str` to `GraphState`.
+- **Node: `verify_citations`**:
+    - **Logic**: Check for citations and faithfulness.
+    - **Output**: `citation_status`, `feedback`, `retry_count` (incremented).
+- **Node: `analyze_failure` (NEW)**:
+    - **Role**: Intern (`llm_intern`).
+    - **Input**: `feedback`.
+    - **Logic**: Generate a refined search query based on the failure.
+    - **Output**: Update `search_queries` (replace list with new query).
+- **Graph Edges**:
+    - `verify_citations` -> `END` (if Verified)
+    - `verify_citations` -> `analyze_failure` (if Failed and retry < 2)
+    - `verify_citations` -> `END` (if Failed and retry >= 2)
+    - `analyze_failure` -> `retrieve`
 
 ## Verification Plan
-- Run `run_mizan.py`.
-- Verify successful execution and high-quality output.
-- Check logs to confirm Cerebras usage (implied by successful run if keys are set correctly).
+- Run `run_mizan.py` with a query that might fail initially (or simulate failure if needed, but the robust retrieval usually works).
+- We can force a failure or just verify the logic is in place.
+- Check logs for "Enriched" DB usage.

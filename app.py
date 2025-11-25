@@ -60,11 +60,13 @@ if prompt := st.chat_input("Ask a question about the Quran..."):
                 # 1. Smart Query Expansion
                 if 'smart_query_expansion' in output:
                     new_state = output['smart_query_expansion']
-                    search_q = new_state.get("search_query", "")
+                    search_queries = new_state.get("search_queries", [])
                     with exp_query:
                         st.markdown(f"**Original:** {prompt}")
-                        st.markdown(f"**Optimized:** {search_q}")
-                        st.success("Query Optimized")
+                        st.markdown("**Generated Queries:**")
+                        for q in search_queries:
+                            st.markdown(f"- {q}")
+                        st.success("Query Fusion Complete")
                 
                 # 2. Retrieval
                 if 'retrieve' in output:
@@ -102,6 +104,7 @@ if prompt := st.chat_input("Ask a question about the Quran..."):
                 if 'verify_citations' in output:
                     new_state = output['verify_citations']
                     status = new_state.get("citation_status", "Unknown")
+                    feedback = new_state.get("feedback", "")
                     
                     # Note: If verified, 'generation' might NOT be in new_state if the node didn't return it.
                     # We rely on draft_answer captured earlier.
@@ -110,20 +113,38 @@ if prompt := st.chat_input("Ask a question about the Quran..."):
                     with exp_verification:
                         if status == "Failed":
                             st.error("Verification Failed")
-                            # If failed, the node returns the error message in 'generation'
-                            error_msg = new_state.get("generation", "Verification failed.")
-                            st.markdown(error_msg)
-                            full_response = error_msg
+                            if feedback:
+                                st.markdown(f"**Critic Feedback:** {feedback}")
+                            
+                            # Check if retrying (CRAG Loop)
+                            retry_count = new_state.get("retry_count", 0)
+                            if retry_count < 2:
+                                st.info("🔄 Triggering Self-Correction Loop...")
+                            else:
+                                st.error("❌ Max retries reached. Giving up.")
+                                full_response = "I apologize, but I could not verify the generated answer against the available context after multiple attempts. Please try rephrasing your question."
+                                
                         elif status == "Verified":
                             st.success("Citations Verified")
                             st.markdown("All claims supported by context.")
-                            # Use the draft answer
                             full_response = draft_answer
                         else:
                             st.warning(f"Unknown status: {status}")
                             full_response = draft_answer
 
-                    # Update main chat with final answer
+                # 6. Analyze Failure (CRAG Loop)
+                if 'analyze_failure' in output:
+                    new_state = output['analyze_failure']
+                    refined_queries = new_state.get("search_queries", [])
+                    with exp_query:
+                        st.markdown("---")
+                        st.markdown("**Refined Query (Strategist):**")
+                        for q in refined_queries:
+                            st.markdown(f"- {q}")
+                        st.info("Retrying Retrieval...")
+
+                # Update main chat with final answer if it's been set
+                if full_response:
                     message_placeholder.markdown(full_response)
                     
             # Add assistant message to history

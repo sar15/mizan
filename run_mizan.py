@@ -6,7 +6,7 @@ def main():
     if len(sys.argv) > 1:
         question = sys.argv[1]
         
-    print(f"Running Mizan 3.0 with query: '{question}'")
+    print(f"Running Mizan 4.0 with query: '{question}'")
     
     initial_state = {"original_question": question, "retry_count": 0}
     
@@ -15,7 +15,7 @@ def main():
         result = app.invoke(initial_state)
         
         print("\n\n=== FINAL OUTPUT ===")
-        print(f"Optimized Query: {result.get('search_query')}")
+        print(f"Generated Queries: {result.get('search_queries')}")
         print(f"Citation Status: {result.get('citation_status')}")
         print("--- Answer ---")
         print(result.get("generation"))

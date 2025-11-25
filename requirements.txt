@@ -6,3 +6,4 @@ langchain-huggingface
 python-dotenv
 streamlit
 langchain-openai
+rank_bm25

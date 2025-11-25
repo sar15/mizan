@@ -39,3 +39,35 @@
     - [x] Update `requirements.txt` with `langchain-openai` <!-- id: 36 -->
     - [x] Rewrite `mizan_core.py` to use Cerebras for Scholar node <!-- id: 37 -->
     - [x] Verify with `run_mizan.py` <!-- id: 38 -->
+- [x] Mizan 4.0 Upgrade (Super-Librarian) <!-- id: 39 -->
+    - [x] Update `requirements.txt` with `rank_bm25` <!-- id: 40 -->
+    - [x] Implement Hybrid Search (Vector + BM25) in `mizan_core.py` <!-- id: 41 -->
+    - [x] Implement Query Fusion (Multi-Query) in `smart_query_expansion` <!-- id: 42 -->
+    - [x] Update `retrieve` node for fusion and deduplication <!-- id: 43 -->
+    - [x] Verify with `run_mizan.py` <!-- id: 44 -->
+- [x] Mizan 4.0 Pillar 2 (Perfect Inventory) <!-- id: 45 -->
+    - [x] Inspect `quran_dictionary.csv` schema <!-- id: 46 -->
+    - [x] Create `ingest_inventory.py` with dictionary enrichment <!-- id: 47 -->
+    - [x] Run `ingest_inventory.py` to populate `chroma_db_enriched` <!-- id: 48 -->
+    - [x] Verify enriched chunks via console output <!-- id: 49 -->
+- [x] Mizan 4.1 Upgrade (Safety Net & Enriched DB) <!-- id: 50 -->
+    - [x] Update `CHROMA_DB_DIR` to `./chroma_db_enriched` <!-- id: 51 -->
+    - [x] Update `GraphState` with `feedback` <!-- id: 52 -->
+    - [x] Update `verify_citations` to return feedback and retry count <!-- id: 53 -->
+    - [x] Implement `analyze_failure` node for query refinement <!-- id: 54 -->
+    - [x] Update Graph edges for CRAG loop <!-- id: 55 -->
+    - [x] Verify with `run_mizan.py` <!-- id: 56 -->
+- [x] Refine Semantic Ingestion Script <!-- id: 57 -->
+    - [x] Rewrite `ingest_semantic.py` with robust error handling <!-- id: 58 -->
+    - [x] Implement "Smart Wait" logic for rate limits <!-- id: 59 -->
+    - [x] Implement "JSON Janitor" for clean parsing <!-- id: 60 -->
+    - [x] Implement resumability with cache <!-- id: 61 -->
+- [x] Architecture Pivot: Local Inference (Ollama) <!-- id: 62 -->
+    - [x] Install Ollama & Pull `llama3` <!-- id: 63 -->
+    - [x] Create `ingest_local.py` (Adapted for Schema) <!-- id: 64 -->
+    - [x] Run `ingest_local.py` <!-- id: 65 -->
+- [x] Architecture Pivot: Llama 3.2 (M4 Air Optimization) <!-- id: 66 -->
+    - [x] Pull `llama3.2` model <!-- id: 67 -->
+    - [x] Create `ingest_fast_safe.py` with micro-pause logic <!-- id: 68 -->
+    - [x] Implement merged cache loading (Groq + Llama3 + Llama3.2) <!-- id: 69 -->
+    - [x] Run `ingest_fast_safe.py` <!-- id: 70 -->
