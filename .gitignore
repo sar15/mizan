@@ -5,3 +5,6 @@ __pycache__/
 .DS_Store
 venv/
 data/mizan_core.db
+mizan_fused/
+chroma_db_semantic/
+mizan_scholar_adapter/
