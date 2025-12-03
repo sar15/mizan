@@ -1,9 +1,0 @@
-langgraph
-langchain-groq
-chromadb
-pandas
-langchain-huggingface
-python-dotenv
-streamlit
-langchain-openai
-rank_bm25
