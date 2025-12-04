@@ -8,3 +8,7 @@ data/mizan_core.db
 mizan_fused/
 chroma_db_semantic/
 mizan_scholar_adapter/
+
+data/chroma_db/
+data/processed/master_quran_atomic.json
+data/processed/quran_skeleton.json

@@ -1,0 +1,25 @@
+# Project Mizan Tasks
+
+- [x] **Architect**: Run `fetch_quran_v2.py` <!-- id: 0 -->
+    - [x] Create `scripts/fetch_quran_v2.py`
+    - [x] Run `scripts/fetch_quran_v2.py` (Test Mode)
+- [x] **Architect**: Inspect Tafsir Structure <!-- id: 1 -->
+    - [x] Inspect `data/kaggle-quran-tafsir/data/quran/surah_001.jsonl`
+- [x] **Architect**: Atomic Merger <!-- id: 2 -->
+    - [x] Create `scripts/merge_atomic.py`
+    - [x] Run `scripts/merge_atomic.py` (Test Mode)
+- [x] **Architect**: Production Harvest <!-- id: 6 -->
+    - [x] Disable TEST_MODE in `scripts/fetch_quran_v2.py`
+    - [x] Run `scripts/fetch_quran_v2.py` (Full)
+    - [x] Run `scripts/merge_atomic.py` (Full)
+- [x] **Engineer**: Ingestion Sprint <!-- id: 3 -->
+    - [x] Install `chromadb` and `sentence-transformers`
+    - [x] Create `scripts/ingest_vectors.py`
+    - [x] Run `scripts/ingest_vectors.py`
+- [x] **Engineer**: Verify Retrieval <!-- id: 7 -->
+    - [x] Create `scripts/test_query.py`
+    - [x] Run `scripts/test_query.py`
+- [ ] **Molvi**: Safety & Domain Verification <!-- id: 4 -->
+    - [ ] Create `sensitive_topics.json`
+- [ ] **Developer**: Build Web Interface <!-- id: 5 -->
+    - [ ] Pending backend completion
