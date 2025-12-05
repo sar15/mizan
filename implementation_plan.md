@@ -1,30 +1,23 @@
-# Production Harvest & Ingestion Plan
+# Qdrant Hybrid Ingestion Plan
 
 ## Goal
-Scale the data pipeline to fetch the full Quran dataset (6,236 verses), merge it with Tafsir context, and ingest it into a ChromaDB vector database for the RAG engine.
-
-## User Review Required
-- **Time**: Fetching all Surahs will take ~10-15 minutes.
-- **Dependencies**: Requires `chromadb` and `sentence-transformers`.
+Switch to Qdrant for Hybrid Search (Dense + Sparse) to leverage the Parent-Child data structure.
 
 ## Proposed Changes
 
-### 1. Production Harvest
-#### [MODIFY] [fetch_quran_v2.py](file:///Users/sarhanak/Documents/mizan/scripts/fetch_quran_v2.py)
-- Change `TEST_MODE = True` to `TEST_MODE = False`.
-
-### 2. Ingestion Sprint
-#### [NEW] [ingest_vectors.py](file:///Users/sarhanak/Documents/mizan/scripts/ingest_vectors.py)
-- **Model**: `sentence-transformers/all-MiniLM-L6-v2`
-- **DB Path**: `data/chroma_db`
-- **Collection**: `quran_atomic`
+### 1. Ingestion Refactor
+#### [MODIFY] [ingest_vectors.py](file:///Users/sarhanak/Documents/mizan/scripts/ingest_vectors.py)
+- **Library**: `qdrant-client`, `fastembed`
+- **Collection**: `mizan_hybrid_v1`
+- **Dense Model**: `intfloat/multilingual-e5-small` (Size 384)
+- **Sparse Model**: `prithivida/Splade_pp_en_v1`
 - **Logic**:
-    - Load `data/processed/master_quran_atomic.json`.
-    - Create embeddings for: `"Verse: " + translation + " \n Context: " + tafsir`.
-    - Store metadata: `id`, `surah_name`, `ayah_number`, `arabic`.
-    - Batch upsert (100 items).
+    - Load `master_quran_hybrid.json`.
+    - Generate Dense & Sparse vectors for `content`.
+    - Upsert to Qdrant with payload (metadata + content).
+    - Use deterministic UUIDs for IDs.
 
 ## Verification Plan
-### Automated Tests
-- **Harvest**: Check `data/processed/master_quran_atomic.json` size (~15-20MB) and count (~6236 verses).
-- **Ingestion**: Script will output "Successfully ingested [Count] verses."
+- **Run Script**: `python3 scripts/ingest_vectors.py`
+- **Check Output**: "Batch X/Y processed".
+- **Verify Qdrant**: Check collection info (if possible via API or script).

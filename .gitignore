@@ -12,3 +12,5 @@ mizan_scholar_adapter/
 data/chroma_db/
 data/processed/master_quran_atomic.json
 data/processed/quran_skeleton.json
+
+qdrant_storage/

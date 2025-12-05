@@ -12,14 +12,25 @@
     - [x] Disable TEST_MODE in `scripts/fetch_quran_v2.py`
     - [x] Run `scripts/fetch_quran_v2.py` (Full)
     - [x] Run `scripts/merge_atomic.py` (Full)
-- [x] **Engineer**: Ingestion Sprint <!-- id: 3 -->
+- [x] **Engineer**: Ingestion Sprint (Chroma - Deprecated) <!-- id: 3 -->
     - [x] Install `chromadb` and `sentence-transformers`
     - [x] Create `scripts/ingest_vectors.py`
     - [x] Run `scripts/ingest_vectors.py`
-- [x] **Engineer**: Verify Retrieval <!-- id: 7 -->
+- [x] **Engineer**: Verify Retrieval (Chroma) <!-- id: 7 -->
     - [x] Create `scripts/test_query.py`
     - [x] Run `scripts/test_query.py`
-- [ ] **Molvi**: Safety & Domain Verification <!-- id: 4 -->
-    - [ ] Create `sensitive_topics.json`
-- [ ] **Developer**: Build Web Interface <!-- id: 5 -->
-    - [ ] Pending backend completion
+- [x] **Architect**: Hybrid Refactor <!-- id: 8 -->
+    - [x] Rewrite `scripts/merge_atomic.py` (Parent-Child)
+    - [x] Run `scripts/merge_atomic.py` (Generate Hybrid JSON)
+- [x] **Engineer**: Ingestion Refactor (Qdrant) <!-- id: 9 -->
+    - [x] Install `qdrant-client` `fastembed`
+    - [x] Rewrite `scripts/ingest_vectors.py` (Hybrid/Qdrant)
+    - [x] Run `scripts/ingest_vectors.py`
+- [x] **Molvi**: Safety & Domain Verification <!-- id: 4 -->
+    - [x] Create `sensitive_topics.json`
+- [x] **Engineer**: Search Quality Benchmark <!-- id: 10 -->
+    - [x] Create `scripts/test_search.py`
+    - [x] Run `scripts/test_search.py` (Pass Rate: 66% - Arabic Fixed)
+- [x] **Developer**: Build Web Interface <!-- id: 5 -->
+    - [x] Create `app.py` (Hybrid Search + Interleaving)
+    - [x] Run and Verify `app.py`

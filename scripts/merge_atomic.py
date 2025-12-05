@@ -4,8 +4,8 @@ import re
 
 # Configuration
 SKELETON_FILE = "data/processed/quran_skeleton.json"
-TAFSIR_DIR = "data/kaggle-quran-tafsir/data/quran"
-OUTPUT_FILE = "data/processed/master_quran_atomic.json"
+TAFSIR_DIR = "data/kaggle-quran-tafsir/data/quran/"
+OUTPUT_FILE = "data/processed/master_quran_hybrid.json"
 
 def clean_html(raw_html):
     if not raw_html:
@@ -17,8 +17,8 @@ def clean_html(raw_html):
     cleantext = cleantext.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&quot;', '"')
     return cleantext.strip()
 
-def merge_atomic():
-    print("Starting Atomic Merger...")
+def merge_hybrid():
+    print("Starting Hybrid Merger (Parent-Child Architecture)...")
     
     # Load Skeleton
     if not os.path.exists(SKELETON_FILE):
@@ -33,7 +33,7 @@ def merge_atomic():
     # Cache for Tafsir data: surah_number -> {verse_key -> tafsir_text}
     tafsir_cache = {}
     
-    merged_data = []
+    hybrid_data = []
     
     for verse in skeleton:
         surah_num = verse["surah_number"]
@@ -46,14 +46,12 @@ def merge_atomic():
             
             surah_tafsir_map = {}
             if os.path.exists(tafsir_path):
-                print(f"Loading Tafsir: {tafsir_filename}")
+                # print(f"Loading Tafsir: {tafsir_filename}") # Reduce noise
                 with open(tafsir_path, "r", encoding="utf-8") as f:
                     for line in f:
                         try:
                             t_obj = json.loads(line)
-                            # Map by verse_key "1:1"
                             v_key = t_obj.get("verse_key")
-                            # Prefer text_html and clean it, or fallback to text_plain
                             raw_text = t_obj.get("text_html", "")
                             cleaned_text = clean_html(raw_text)
                             if not cleaned_text:
@@ -68,20 +66,44 @@ def merge_atomic():
             
             tafsir_cache[surah_num] = surah_tafsir_map
             
-        # Merge
-        tafsir_text = tafsir_cache[surah_num].get(verse_key, "Context Not Available")
+        # --- Create Verse Object (Type A) ---
+        verse_content = f"{verse.get('arabic', '')} \n {verse.get('translation', '')}"
+        verse_obj = {
+            "id": f"verse_{verse_key}",
+            "type": "verse",
+            "content": verse_content,
+            "metadata": {
+                "surah": surah_num,
+                "ayah": verse["ayah_number"],
+                "verse_key": verse_key,
+                "text_uthmani": verse.get("arabic", ""),
+                # Assuming 'arabic' is Uthmani. If we had Imlaei separate, we'd add it.
+                "translator": verse.get("translator", "Sahih International")
+            }
+        }
+        hybrid_data.append(verse_obj)
         
-        verse["tafsir"] = tafsir_text
-        verse["tafsir_source"] = "Ibn Kathir (Kaggle Dataset)"
+        # --- Create Tafsir Object (Type B) ---
+        tafsir_text = tafsir_cache[surah_num].get(verse_key)
         
-        merged_data.append(verse)
+        if tafsir_text:
+            tafsir_obj = {
+                "id": f"tafsir_{verse_key}",
+                "type": "tafsir",
+                "content": tafsir_text,
+                "metadata": {
+                    "verse_reference": verse_key,
+                    "source": "Ibn Kathir"
+                }
+            }
+            hybrid_data.append(tafsir_obj)
         
     # Save Master File
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(merged_data, f, indent=2, ensure_ascii=False)
+        json.dump(hybrid_data, f, indent=2, ensure_ascii=False)
         
-    print(f"Merger Complete. Saved {len(merged_data)} atomic chunks to {OUTPUT_FILE}")
+    print(f"Hybrid Merger Complete. Saved {len(hybrid_data)} records to {OUTPUT_FILE}")
 
 if __name__ == "__main__":
-    merge_atomic()
+    merge_hybrid()

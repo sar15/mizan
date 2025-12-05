@@ -1,120 +1,123 @@
 import json
 import os
-import chromadb
-from chromadb.utils import embedding_functions
-from sentence_transformers import SentenceTransformer
-import time
+import uuid
+import re
+import warnings
+from typing import List, Dict, Any
 
-# Configuration
-DATA_FILE = "data/processed/master_quran_atomic.json"
-DB_PATH = "data/chroma_db"
-COLLECTION_NAME = "quran_atomic"
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-BATCH_SIZE = 100
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+from fastembed import TextEmbedding
 
-def update_gitignore():
-    gitignore_path = ".gitignore"
-    exclusions = [
-        "data/chroma_db/",
-        "data/processed/master_quran_atomic.json",
-        "data/processed/quran_skeleton.json"
-    ]
-    
-    if os.path.exists(gitignore_path):
-        with open(gitignore_path, "r") as f:
-            content = f.read()
-        
-        with open(gitignore_path, "a") as f:
-            for exc in exclusions:
-                if exc not in content:
-                    f.write(f"\n{exc}")
-                    print(f"Added {exc} to .gitignore")
-    else:
-        print("Warning: .gitignore not found.")
+# ============ CONFIGURATION ============
+DATA_FILE = "data/processed/master_quran_hybrid.json"
+COLLECTION_NAME = "mizan_hybrid_v2" 
+QDRANT_HOST = "localhost"
+QDRANT_PORT = 6333
+BATCH_SIZE = 50
+# Model: MiniLM-L12 (Symmetric)
+DENSE_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# =================================================
 
-def ingest_vectors():
-    print("Starting Ingestion Sprint...")
+# Suppress FastEmbed warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="fastembed")
+
+def arabic_normalize(text):
+    if not text: return ""
+    text = re.sub(r'[\u064B-\u065F\u0670]', '', text) # Tashkeel
+    text = re.sub(r'[أإآ]', 'ا', text) # Alef
+    text = re.sub(r'ة', 'ه', text) # Teh Marbuta
+    text = re.sub(r'ى', 'ي', text) # Yeh
+    return text
+
+def get_client():
+    try:
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        client.get_collections()
+        print(f"✓ Connected to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
+        return client
+    except Exception:
+        print(f"⚠ Qdrant server unreachable. Using local disk: qdrant_storage/")
+        return QdrantClient(path="qdrant_storage")
+
+def setup_collection(client: QdrantClient):
+    if client.collection_exists(COLLECTION_NAME):
+        print(f"♻️  Recreating collection '{COLLECTION_NAME}'...")
+        client.delete_collection(COLLECTION_NAME)
     
-    # 1. Environment Check & Gitignore Update
-    update_gitignore()
+    client.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config={"dense": models.VectorParams(size=384, distance=models.Distance.COSINE)},
+        hnsw_config=models.HnswConfigDiff(m=16, ef_construct=100)
+    )
     
-    # 2. Load Data
+    # Text Index for Keyword Search
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="searchable_text",
+        field_schema=models.TextIndexParams(
+            type="text",
+            tokenizer=models.TokenizerType.MULTILINGUAL,
+            min_token_len=2,
+            max_token_len=40,
+            lowercase=True
+        )
+    )
+    print("✓ Collection structure ready.")
+
+def ingest_hybrid():
+    print("="*60 + "\n🚀 MIZAN INGESTION: MINILM PROTOCOL\n" + "="*60)
+    
     if not os.path.exists(DATA_FILE):
-        print(f"Error: Data file {DATA_FILE} not found.")
+        print(f"❌ Error: {DATA_FILE} not found.")
         return
         
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
+    print(f"✓ Loaded {len(data)} records.")
+    
+    print(f"✓ Loading Model: {DENSE_MODEL_NAME}...")
+    dense_model = TextEmbedding(model_name=DENSE_MODEL_NAME)
+    
+    client = get_client()
+    setup_collection(client)
+    
+    total = len(data)
+    print(f"✓ Starting ingestion of {total} items...")
+    
+    for i in range(0, total, BATCH_SIZE):
+        batch = data[i : i + BATCH_SIZE]
+        contents = [item["content"] for item in batch]
         
-    print(f"Loaded {len(data)} verses from {DATA_FILE}")
-    
-    # 3. Initialize ChromaDB
-    print(f"Initializing ChromaDB at {DB_PATH}...")
-    client = chromadb.PersistentClient(path=DB_PATH)
-    
-    # 4. Initialize Embedding Model
-    sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=MODEL_NAME)
-    
-    # Create or get collection
-    collection = client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=sentence_transformer_ef
-    )
-    
-    print(f"Collection '{COLLECTION_NAME}' ready.")
-    
-    # 5. Prepare Batches
-    documents = []
-    metadatas = []
-    ids = []
-    
-    total_verses = len(data)
-    
-    for i, verse in enumerate(data):
-        # Construct Document Text
-        # "Verse: " + translation + " \n Context: " + tafsir
-        translation = verse.get("translation", "")
-        tafsir = verse.get("tafsir", "")
-        if not tafsir:
-            tafsir = "Context Not Available"
+        try:
+            # CRITICAL: Use .embed() for Symmetric models
+            dense_embeddings = list(dense_model.embed(contents))
             
-        doc_text = f"Verse: {translation} \n Context: {tafsir}"
-        
-        # Metadata
-        # Ensure all values are strings or numbers, Chroma can be picky
-        meta = {
-            "surah_name": str(verse.get("surah_name", "")),
-            "ayah_number": int(verse.get("ayah_number", 0)),
-            "arabic": str(verse.get("arabic", "")),
-            "surah_number": int(verse.get("surah_number", 0))
-        }
-        
-        documents.append(doc_text)
-        metadatas.append(meta)
-        ids.append(verse.get("id"))
-        
-        # Batch Upsert
-        if len(documents) >= BATCH_SIZE:
-            collection.upsert(
-                documents=documents,
-                metadatas=metadatas,
-                ids=ids
-            )
-            documents = []
-            metadatas = []
-            ids = []
-            print(f"Processed {i+1}/{total_verses} verses...")
+            points = []
+            for j, item in enumerate(batch):
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, item["id"]))
+                
+                # Normalize text for keyword search
+                raw_text = item["content"]
+                if item["type"] == "verse":
+                    raw_text += f" {item['metadata'].get('verse_key', '')} surah {item['metadata'].get('surah', '')}"
+                
+                payload = item.copy()
+                payload["searchable_text"] = arabic_normalize(raw_text)
+                
+                points.append(models.PointStruct(
+                    id=point_id,
+                    vector={"dense": dense_embeddings[j].tolist()},
+                    payload=payload
+                ))
             
-    # Upsert remaining
-    if documents:
-        collection.upsert(
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids
-        )
-        print(f"Processed {total_verses}/{total_verses} verses...")
-        
-    print(f"Successfully ingested {collection.count()} verses.")
+            client.upsert(collection_name=COLLECTION_NAME, points=points)
+            print(f"  ↳ Batch {i // BATCH_SIZE + 1} saved ({min(i + BATCH_SIZE, total)}/{total})")
+            
+        except Exception as e:
+            print(f"❌ Error batch {i}: {e}")
+
+    print("\n✅ INGESTION COMPLETE. SYSTEM READY.")
 
 if __name__ == "__main__":
-    ingest_vectors()
+    ingest_hybrid()

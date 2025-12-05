@@ -1,0 +1,68 @@
+{
+    "sensitive_topics": [
+        {
+            "topic": "Violence and Jihad",
+            "keywords": [
+                "kill",
+                "fight",
+                "jihad",
+                "sword",
+                "war",
+                "strike",
+                "smite"
+            ],
+            "risk_level": "High",
+            "handling_instruction": "Provide comprehensive context. Cite specific historical circumstances. Emphasize defensive nature where applicable. Reference 2:190 and 60:8."
+        },
+        {
+            "topic": "Apostasy",
+            "keywords": [
+                "apostate",
+                "leave islam",
+                "murtad",
+                "kill apostate"
+            ],
+            "risk_level": "High",
+            "handling_instruction": "Clarify the difference between treason/rebellion and simple change of faith. Cite 'No compulsion in religion' (2:256)."
+        },
+        {
+            "topic": "Women's Rights",
+            "keywords": [
+                "beat wife",
+                "hit wife",
+                "women intelligence",
+                "inheritance",
+                "testimony"
+            ],
+            "risk_level": "Medium",
+            "handling_instruction": "Explain linguistic nuances (e.g., 'daraba'). Contextualize inheritance laws with financial responsibilities. Emphasize spiritual equality (33:35)."
+        },
+        {
+            "topic": "Interfaith Relations",
+            "keywords": [
+                "jews",
+                "christians",
+                "friends",
+                "enemies",
+                "disbelievers",
+                "kafir"
+            ],
+            "risk_level": "Medium",
+            "handling_instruction": "Distinguish between specific historical groups at war and general relations. Cite 60:8 regarding kindness to peaceful non-Muslims."
+        },
+        {
+            "topic": "Sectarianism",
+            "keywords": [
+                "shia",
+                "sunni",
+                "sufi",
+                "wahhabi",
+                "salafi",
+                "rafida",
+                "nasibi"
+            ],
+            "risk_level": "High",
+            "handling_instruction": "Maintain neutrality. Focus on shared Quranic principles. Avoid taking sides in historical theological disputes."
+        }
+    ]
+}
