@@ -1,36 +1,13 @@
-# Project Mizan Tasks
+# Phase 1-3: Complete ✅
 
-- [x] **Architect**: Run `fetch_quran_v2.py` <!-- id: 0 -->
-    - [x] Create `scripts/fetch_quran_v2.py`
-    - [x] Run `scripts/fetch_quran_v2.py` (Test Mode)
-- [x] **Architect**: Inspect Tafsir Structure <!-- id: 1 -->
-    - [x] Inspect `data/kaggle-quran-tafsir/data/quran/surah_001.jsonl`
-- [x] **Architect**: Atomic Merger <!-- id: 2 -->
-    - [x] Create `scripts/merge_atomic.py`
-    - [x] Run `scripts/merge_atomic.py` (Test Mode)
-- [x] **Architect**: Production Harvest <!-- id: 6 -->
-    - [x] Disable TEST_MODE in `scripts/fetch_quran_v2.py`
-    - [x] Run `scripts/fetch_quran_v2.py` (Full)
-    - [x] Run `scripts/merge_atomic.py` (Full)
-- [x] **Engineer**: Ingestion Sprint (Chroma - Deprecated) <!-- id: 3 -->
-    - [x] Install `chromadb` and `sentence-transformers`
-    - [x] Create `scripts/ingest_vectors.py`
-    - [x] Run `scripts/ingest_vectors.py`
-- [x] **Engineer**: Verify Retrieval (Chroma) <!-- id: 7 -->
-    - [x] Create `scripts/test_query.py`
-    - [x] Run `scripts/test_query.py`
-- [x] **Architect**: Hybrid Refactor <!-- id: 8 -->
-    - [x] Rewrite `scripts/merge_atomic.py` (Parent-Child)
-    - [x] Run `scripts/merge_atomic.py` (Generate Hybrid JSON)
-- [x] **Engineer**: Ingestion Refactor (Qdrant) <!-- id: 9 -->
-    - [x] Install `qdrant-client` `fastembed`
-    - [x] Rewrite `scripts/ingest_vectors.py` (Hybrid/Qdrant)
-    - [x] Run `scripts/ingest_vectors.py`
-- [x] **Molvi**: Safety & Domain Verification <!-- id: 4 -->
-    - [x] Create `sensitive_topics.json`
-- [x] **Engineer**: Search Quality Benchmark <!-- id: 10 -->
-    - [x] Create `scripts/test_search.py`
-    - [x] Run `scripts/test_search.py` (Pass Rate: 66% - Arabic Fixed)
-- [x] **Developer**: Build Web Interface <!-- id: 5 -->
-    - [x] Create `app.py` (Hybrid Search + Interleaving)
-    - [x] Run and Verify `app.py`
+# Phase 4: Operation Ironclad (Production-Ready)
+
+- [ ] Create `tests/test_mizan.py` <!-- id: 9 -->
+    - [ ] Test Precision (zina query)
+    - [ ] Test Verifier (fake citations)
+    - [ ] Test RAG (mock Groq, empty context)
+- [ ] Create `scripts/warmup.py` <!-- id: 10 -->
+    - [ ] Pre-load BGE models
+- [ ] Create `Dockerfile` <!-- id: 11 -->
+- [ ] Create `docker-compose.yml` <!-- id: 12 -->
+- [ ] Create `README_PRODUCTION.md` <!-- id: 13 -->

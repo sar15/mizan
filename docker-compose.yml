@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Service 1: Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: mizan-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Service 2: Mizan Application
+  mizan-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mizan-app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./qdrant_storage:/app/qdrant_storage
+      - ./data:/app/data
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - TOKENIZERS_PARALLELISM=false
+    env_file:
+      - .env
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: mizan-network

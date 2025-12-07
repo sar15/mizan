@@ -1,16 +1,48 @@
+# Environment
 .env
-chroma_db/
+.env.local
+
+# Python
 __pycache__/
 *.pyc
-.DS_Store
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 venv/
-data/mizan_core.db
-mizan_fused/
-chroma_db_semantic/
-mizan_scholar_adapter/
+.venv/
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Debug files
+debug_*.py
+debug_*.txt
+
+# Data (large files)
+data/mizan_core.db
 data/chroma_db/
 data/processed/master_quran_atomic.json
+data/processed/master_quran_hybrid.json
 data/processed/quran_skeleton.json
 
+# Vector storage
 qdrant_storage/
+chroma_db/
+chroma_db_semantic/
+
+# Legacy
+mizan_fused/
+mizan_scholar_adapter/
+
+# Misc
+*.log
+test_results.txt

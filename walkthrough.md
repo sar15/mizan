@@ -1,67 +1,35 @@
-# Project Mizan: The Hybrid Quranic Search Engine
+# Project Mizan - Walkthrough
 
-> *"The Divine Text must always precede the human interpretation."*
+## Phase 1: The Precision Fix (Search)
+**Objective**: Replace MiniLM with BGE-M3 + Reranker for high-precision retrieval.
 
-## 1. Mission & Philosophy
-Project Mizan is not just a search engine; it is a digital steward of sacred knowledge. Our core design philosophy is built on **Adab (Etiquette)** and **Precision**:
--   **Hierarchy of Truth**: The Quran (Verse) is the primary source. Tafsir (Commentary) is secondary context. Our search results reflect this hierarchy visually and algorithmically.
--   **Zero Hallucination**: We do not generate answers; we retrieve grounded truths.
--   **True Multilingualism**: The system must understand the query regardless of whether it is in the language of revelation (Arabic) or the language of the user (English).
+- **Engine**: `mizan_engine.py` uses `BAAI/bge-m3` (via FlagModel) and `BAAI/bge-reranker-v2-m3`. Includes "Kill Switch" for negative scores.
+- **Ingestion**: `scripts/ingest_v2.py` indexes 12k+ verses/tafsirs into generic Qdrant store (Int8 quantized).
+- **Models**: Explicitly cached via `scripts/download_models.py`.
 
-## 2. The Architecture
+## Phase 2: The Hallucination Shield (RAG)
+**Objective**: "Zero Hallucination" RAG using Groq Llama 3.3 and citation verification.
 
-### The Data Model: Hybrid Stream
-We moved away from simple "chunking" to a **Semantic Object Model**.
--   **Verses**: Treated as atomic units of divine speech.
--   **Tafsirs**: Treated as scholarly context linked to verses.
--   **Storage**: `master_quran_hybrid.json` (12,472 records).
+### 1. The Police: `verifier.py`
+We implemented `CitationVerifier` to strictly enforce truthfulness.
+- **Logic**: It extracts every tag like `<verse_2:1>` from the AI's answer.
+- **Kill Switch**: If ANY cited tag is missing from the retrieved context, the entire answer is discarded. We prefer silence over lies.
 
-### The Engine: Qdrant (Local)
-We migrated from ChromaDB to **Qdrant** to leverage its superior Hybrid Search capabilities (Dense Vectors + Sparse/Keyword Matching) and robust filtering.
+### 2. The Brain: `mizan_rag.py`
+We built `RagEngine` to orchestrate the flow.
+- **Model**: `llama-3.3-70b-versatile` running on Groq (500 t/s). (Successor to the deprecated llama3-70b-8192).
+- **Prompt Engineering**: 
+    - "Quran First": Prioritizes divine text.
+    - "Citation Constraint": Forces use of `<id>` tags.
+- **Integration**:
+    1.  `MizanEngine` fetches context.
+    2.  `RagEngine` (Groq) generates draft.
+    3.  `CitationVerifier` validates draft.
+    4.  Final Answer returned.
 
-### The Brain: MiniLM-L12
-The most critical technical decision was the choice of the embedding model.
--   **Initial Failure**: `all-MiniLM-L6-v2` was fast but "blind" to Arabic.
--   **The "Elephant"**: Our benchmark revealed a 0% pass rate for Arabic queries.
--   **The Pivot**: We attempted `E5-Large` (too heavy for local use) and settled on **`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`**.
-    -   **Result**: 93ms Latency, High Accuracy in both Arabic and English.
+## Verification
+- **Run**: `python mizan_rag.py`
+- **Result**: Successfully answered "Meaning of Alif Lam Meem" with citations `<verse_13:1>` and `<tafsir_29:1>` validated against context.
 
-## 3. The Pipeline
-
-### Step 1: Harvest (`scripts/fetch_quran_v2.py`)
-A robust script that interfaces with the Quran.com API to fetch all 114 Surahs, 6,236 Verses, and their metadata.
-
-### Step 2: Alchemy (`scripts/merge_atomic.py`)
-This script fuses the raw Quranic text with the Tafsir (Ibn Kathir) data. It cleans HTML, normalizes text, and structures the data into our Hybrid JSON format.
-
-### Step 3: Ingestion (`scripts/ingest_vectors.py`)
-The heavy lifter. It:
-1.  Loads the Hybrid JSON.
-2.  Generates Dense Vectors (384-dim) using MiniLM-L12.
-3.  Creates a **Keyword Index** with Arabic Normalization (handling Alef, Teh Marbuta, etc.).
-4.  Upserts to Qdrant.
-
-## 4. The Interface (`app.py`)
-
-The Web Interface is where our philosophy becomes code.
-
-### The Interleaving Algorithm
-We rejected simple score-based sorting because it often buried verses under long commentaries. Instead, we implemented **Presentation Logic**:
--   **Rule**: Show up to **2 Verses**, then **1 Tafsir**. Repeat.
--   **Effect**: The user always sees the Divine Text first, ensuring the "Hierarchy of Truth" is respected.
-
-### Right-to-Left (RTL) Support
-We implemented dynamic CSS injection to detect Arabic text and render it Right-to-Left, ensuring the script is treated with dignity.
-
-## 5. Verification & Benchmarks
-
-We refused to guess. We built a rigorous test suite (`scripts/test_search.py`) covering:
--   **Exact Phrase (Arabic)**: "لا إكراه في الدين" (PASSED)
--   **Exact Phrase (English)**: "no compulsion in religion" (PASSED)
--   **Concepts**: "treatment of parents" (PASSED - retrieved relevant verses)
-
-## 6. Conclusion
-Project Mizan is now a production-ready MVP. It is a testament to **Agentic Engineering**: we didn't just write code; we debated philosophy, benchmarked reality, and engineered a solution that respects both the user and the source material.
-
----
-*Status: 🟢 SYSTEM GREEN | Ready for Deployment*
+## Next Steps
+- Connect this backend to the Streamlit UI.
